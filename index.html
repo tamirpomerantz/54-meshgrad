@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mesh Gradient Generator</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <canvas id="meshCanvas" class="mesh-canvas"></canvas>
+        
+        <div class="floating-controls">
+            <button class="toggle-controls" aria-label="Toggle Controls">
+                <span class="material-icons-round">palette</span>
+            </button>
+            
+            <div class="controls-panel">
+                <div class="color-space-selector">
+                    <select id="colorSpace" class="select-minimal">
+                        <option value="rgb">RGB</option>
+                        <option value="oklab">OKLAB</option>
+                        <option value="hsl">HSL</option>
+                        <option value="lch">LCH</option>
+                    </select>
+                    <label for="colorSpace">
+                        <span class="material-icons-round">colorize</span>
+                    </label>
+                </div>
+
+                <div class="color-controls">
+                    <div class="color-picker">
+                        <input type="color" id="topLeft" data-position="tl" title="Top Left">
+                        <label for="topLeft">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="topRight" data-position="tr" title="Top Right">
+                        <label for="topRight">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="bottomLeft" data-position="bl" title="Bottom Left">
+                        <label for="bottomLeft">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="bottomRight" data-position="br" title="Bottom Right">
+                        <label for="bottomRight">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="action-controls">
+                    <button id="randomizeWarp" class="btn" title="Randomize Warp">
+                        <span class="material-icons-round">blur_on</span>
+                    </button>
+                    <button id="randomizeColors" class="btn" title="Randomize Colors">
+                        <span class="material-icons-round">color_lens</span>
+                    </button>
+                    <button id="randomizePositions" class="btn" title="Randomize Color Positions">
+                        <span class="material-icons-round">transform</span>
+                    </button>
+                    <button id="toggleNoise" class="btn" title="Toggle Noise">
+                        <span class="material-icons-round">grain</span>
+                    </button>
+                    <button id="export" class="btn" title="Export PNG">
+                        <span class="material-icons-round">download</span>
+                    </button>
+                    <button id="reset" class="btn" title="Reset">
+                        <span class="material-icons-round">restart_alt</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="shaders.js" type="module"></script>
+    <script src="noise.js" type="module"></script>
+    <script src="mesh.js" type="module"></script>
+    <script src="app.js" type="module"></script>
+</body>
+</html>

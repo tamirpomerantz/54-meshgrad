@@ -1,0 +1,239 @@
+:root {
+    --primary-bg: #1a1a1a;
+    --secondary-bg: rgba(42, 42, 42, 0.8);
+    --hover-bg: rgba(85, 85, 85, 0.8);
+    --text-color: #ffffff;
+    --border-color: #444444;
+    --shadow-color: rgba(0, 0, 0, 0.2);
+    --control-size: 32px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--primary-bg);
+    color: var(--text-color);
+    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 10px;
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.mesh-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.floating-controls {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 1000;
+}
+
+.toggle-controls {
+    width: var(--control-size);
+    height: var(--control-size);
+    border: none;
+    border-radius: 8px;
+    background: var(--secondary-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+}
+
+.toggle-controls:hover {
+    background: var(--hover-bg);
+}
+
+.controls-panel {
+    background: var(--secondary-bg);
+    backdrop-filter: blur(10px);
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 200px;
+    box-shadow: 0 4px 12px var(--shadow-color);
+    transition: all 0.3s ease;
+}
+
+.controls-panel.collapsed {
+    display: none;
+}
+
+.color-controls {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.color-picker {
+    position: relative;
+    width: var(--control-size);
+    height: var(--control-size);
+}
+
+.color-picker input[type="color"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.color-picker label {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    overflow: hidden;
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.color-picker label .material-icons-round {
+    font-size: 24px;
+    transition: color 0.2s ease;
+}
+
+/* Remove default color picker styles in webkit browsers */
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+    border: none;
+}
+
+.action-controls {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+}
+
+.btn {
+    width: var(--control-size);
+    height: var(--control-size);
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    background: var(--hover-bg);
+}
+
+.btn.active {
+    background: var(--text-color);
+    color: var(--primary-bg);
+}
+
+.btn .material-icons-round {
+    font-size: 18px;
+    opacity: 0.8;
+}
+
+/* Add smooth transitions */
+.floating-controls * {
+    transition: all 0.2s ease;
+}
+
+/* Tooltip styles */
+[title] {
+    position: relative;
+}
+
+[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: var(--secondary-bg);
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+} 
+
+.color-space-selector {
+    position: relative;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.select-minimal {
+    width: 100%;
+    height: var(--control-size);
+    padding: 0 32px 0 12px;
+    background: var(--secondary-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: all 0.2s ease;
+}
+
+.select-minimal:hover {
+    background: var(--hover-bg);
+}
+
+.select-minimal:focus {
+    outline: none;
+    border-color: var(--text-color);
+}
+
+.color-space-selector label {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.color-space-selector .material-icons-round {
+    font-size: 18px;
+    color: var(--text-color);
+    opacity: 0.8;
+} 
