@@ -4,10 +4,10 @@ const MAX_POINTS = 32;
 
 export class Warp {
     constructor(parent, which, src = [], dst = []) {
-        this.parent = parent;
-        this.which = which;
-        this.src = src;
-        this.dst = dst;
+    this.parent = parent;
+    this.which = which;
+    this.src = src;
+    this.dst = dst;
         this.s2 = new Array(MAX_POINTS).fill(0);
         this.w = new Array(MAX_POINTS).fill([0, 0]);
     }
@@ -25,7 +25,7 @@ export class Warp {
     }
 
     distance_squared(x, y, y_is_x) {
-        if (y_is_x) {
+    if (y_is_x) {
             const gram = x.map(r => x.map(c => r[0] * c[0] + r[1] * c[1]));
             return x.map((_, r) => x.map((_, c) => gram[r][r] + gram[c][c] - 2 * gram[r][c]));
         } else {
@@ -89,10 +89,10 @@ export class Warps {
             return Array.isArray(item) && item.length === 2 && 
                    typeof item[0] === 'number' && typeof item[1] === 'number' ? 
                    item : [0, 0];
-        });
+    });
 
-        this.warps = [
-            new Warp(this, 0, this.src, this.dst),
+    this.warps = [
+	new Warp(this, 0, this.src, this.dst),
             new Warp(this, 1, this.dst, this.src)
         ];
     }
@@ -105,12 +105,12 @@ export class Warps {
         if (flip) {
             [sx, dx] = [dx, sx];
             [sy, dy] = [dy, sy];
-        }
+    }
 
-        this.src[this.npoints] = [sx, sy];
-        this.dst[this.npoints] = [dx, dy];
-        this.npoints++;
-        this.update();
+    this.src[this.npoints] = [sx, sy];
+    this.dst[this.npoints] = [dx, dy];
+    this.npoints++;
+    this.update();
     }
 
     add_pair(which, x, y) {
@@ -123,20 +123,20 @@ export class Warps {
         for (let i = idx; i < this.npoints - 1; i++) {
             this.src[i] = this.src[i + 1].slice();
             this.dst[i] = this.dst[i + 1].slice();
-        }
-        this.npoints--;
-        this.update();
+    }
+    this.npoints--;
+    this.update();
     }
 }
 
 export class Canvas {
     constructor(warp, canvas, colors) {
-        this.warp = warp;
-        this.canvas = canvas;
-        this.ctx = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+    this.warp = warp;
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("webgl", { preserveDrawingBuffer: true });
         this.radius = 10;
         this.colors = colors;
-        this.drag = null;
+    this.drag = null;
         this.showPoints = true;
         this.aspectRatio = this.canvas.width / this.canvas.height;
         this.colorSpace = 0; // Default to RGB
@@ -204,13 +204,13 @@ export class Canvas {
         const program = gl.createProgram();
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
-        gl.linkProgram(program);
+    gl.linkProgram(program);
 
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            throw new Error(gl.getProgramInfoLog(program));
+        throw new Error(gl.getProgramInfoLog(program));
         }
 
-        return program;
+    return program;
     }
 
     createShader(name, type, source) {
@@ -233,13 +233,13 @@ export class Canvas {
         const position = new Float32Array([-1,-1, 1,-1, 1,1, -1,1]);
         this.positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, position, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, position, gl.STATIC_DRAW);
 
         // Texture coordinate buffer
         const texcoord = new Float32Array([0,0, 1,0, 1,1, 0,1]);
         this.texcoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.texcoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, texcoord, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, texcoord, gl.STATIC_DRAW);
 
         // Points buffer
         this.pointsBuffer = gl.createBuffer();
@@ -247,14 +247,14 @@ export class Canvas {
         gl.bufferData(gl.ARRAY_BUFFER, MAX_POINTS * 2 * 4, gl.STATIC_DRAW);
 
         // Index buffer
-        this.indices = new Uint16Array([0,1,2, 2,3,0]);
+    this.indices = new Uint16Array([0,1,2, 2,3,0]);
         this.numIndices = this.indices.length;
         this.indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
 
     setupEventListeners() {
@@ -282,9 +282,9 @@ export class Canvas {
         const loc = gl.getUniformLocation(program, variable);
         
         if (type === 0) {
-            func.call(gl, loc, value);
+	func.call(gl, loc, value);
         } else if (type === 1) {
-            func.call(gl, loc, new Float32Array(value));
+	func.call(gl, loc, new Float32Array(value));
         } else {
             throw new Error('Invalid uniform type');
         }
@@ -292,11 +292,11 @@ export class Canvas {
 
     draw() {
         const gl = this.ctx;
-        
-        gl.clearColor(0.5, 0.5, 1.0, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
 
-        if (this.warp.npoints() >= 4) {
+    gl.clearColor(0.5, 0.5, 1.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    if (this.warp.npoints() >= 4) {
             this.drawMesh();
         }
 
@@ -365,11 +365,11 @@ export class Canvas {
         gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
 
         // Cleanup
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.disableVertexAttribArray(positionAttrib);
         gl.disableVertexAttribArray(texcoordAttrib);
-        gl.useProgram(null);
+	gl.useProgram(null);
     }
 
     drawPoints() {
@@ -441,7 +441,7 @@ export class Canvas {
             const colorPoint = this.colorPoints.find(p => p.corner === point.corner);
             if (!colorPoint) {
                 console.error('Color point not found:', point.corner);
-                return;
+	return;
             }
             
             this.drag = {

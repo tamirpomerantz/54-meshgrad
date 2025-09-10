@@ -189,6 +189,7 @@ input[type="color"]::-webkit-color-swatch {
     background: var(--secondary-bg);
     border-radius: 4px;
     font-size: 10px;
+    color: var(--text-color);
     white-space: nowrap;
     backdrop-filter: blur(10px);
 } 
