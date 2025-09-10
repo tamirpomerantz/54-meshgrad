@@ -14,6 +14,13 @@ class MeshGradientApp {
         this.meshCanvas = null;
         this.noiseRenderer = null;
 
+        // Animation properties
+        this.isAnimating = false;
+        this.animationId = null;
+        this.pointVelocities = []; // Velocities for warp points
+        this.colorPointVelocities = []; // Velocities for color points
+        this.animationSpeed = 0.002; // Low speed as requested
+
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
@@ -67,6 +74,22 @@ class MeshGradientApp {
             if (this.meshCanvas) {
                 this.meshCanvas.setColorSpace(this.colorSpace);
                 this.redraw();
+            }
+        });
+
+        // Animation toggle
+        document.getElementById('toggleAnimation')?.addEventListener('click', (e) => {
+            this.toggleAnimation();
+            
+            // Update button appearance and icon
+            const button = e.currentTarget;
+            const icon = button.querySelector('.material-icons-round');
+            if (this.isAnimating) {
+                button.classList.add('active');
+                icon.textContent = 'pause';
+            } else {
+                button.classList.remove('active');
+                icon.textContent = 'play_arrow';
             }
         });
 
@@ -255,8 +278,9 @@ class MeshGradientApp {
 
         // If noise is enabled, apply it to the export
         if (this.noiseRenderer && this.noiseRenderer.isEnabled()) {
-            // Generate fresh noise for export
-            this.noiseRenderer.generateNoise();
+            // Use the existing noise pattern (don't generate fresh)
+            // Ensure noise is generated if it hasn't been yet
+            this.noiseRenderer.applyNoise();
             
             // Apply noise with overlay blend mode
             exportCtx.globalCompositeOperation = 'overlay';
@@ -316,6 +340,132 @@ class MeshGradientApp {
                 }
             }
         });
+    }
+
+    initializeAnimationVelocities() {
+        // Initialize velocities for warp points
+        this.pointVelocities = [];
+        if (this.warps) {
+            for (let i = 0; i < this.warps.npoints; i++) {
+                this.pointVelocities.push({
+                    x: (Math.random() - 0.5) * this.animationSpeed,
+                    y: (Math.random() - 0.5) * this.animationSpeed
+                });
+            }
+        }
+
+        // Initialize velocities for color points
+        this.colorPointVelocities = [];
+        if (this.meshCanvas && this.meshCanvas.colorPoints) {
+            for (let i = 0; i < this.meshCanvas.colorPoints.length; i++) {
+                this.colorPointVelocities.push({
+                    x: (Math.random() - 0.5) * this.animationSpeed,
+                    y: (Math.random() - 0.5) * this.animationSpeed
+                });
+            }
+        }
+    }
+
+    toggleAnimation() {
+        if (this.isAnimating) {
+            this.stopAnimation();
+        } else {
+            this.startAnimation();
+        }
+    }
+
+    startAnimation() {
+        if (this.isAnimating) return;
+        
+        this.isAnimating = true;
+        this.initializeAnimationVelocities();
+        this.animate();
+    }
+
+    stopAnimation() {
+        this.isAnimating = false;
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+    }
+
+    animate() {
+        if (!this.isAnimating) return;
+
+        this.updatePointPositions();
+        
+        if (this.meshCanvas) {
+            this.meshCanvas.draw();
+            
+            // Apply noise overlay if enabled
+            if (this.noiseRenderer && this.noiseRenderer.isEnabled()) {
+                this.noiseRenderer.applyNoise();
+            }
+        }
+
+        this.animationId = requestAnimationFrame(() => this.animate());
+    }
+
+    updatePointPositions() {
+        if (!this.warps || !this.meshCanvas) return;
+
+        const aspectRatio = this.meshCanvas.aspectRatio || 1;
+        
+        // Update warp points
+        for (let i = 0; i < this.warps.npoints; i++) {
+            const point = this.warps.src[i];
+            const velocity = this.pointVelocities[i];
+            
+            if (point && velocity) {
+                // Update position
+                point[0] += velocity.x;
+                point[1] += velocity.y;
+                
+                // Bounce off boundaries (clip space is -1 to 1)
+                if (point[0] <= -1 || point[0] >= 1) {
+                    velocity.x = -velocity.x;
+                    point[0] = Math.max(-1, Math.min(1, point[0])); // Clamp to bounds
+                }
+                if (point[1] <= -1 || point[1] >= 1) {
+                    velocity.y = -velocity.y;
+                    point[1] = Math.max(-1, Math.min(1, point[1])); // Clamp to bounds
+                }
+            }
+        }
+
+        // Update color points
+        for (let i = 0; i < this.meshCanvas.colorPoints.length; i++) {
+            const colorPoint = this.meshCanvas.colorPoints[i];
+            const velocity = this.colorPointVelocities[i];
+            
+            if (colorPoint && velocity) {
+                // Update position
+                colorPoint.pos[0] += velocity.x;
+                colorPoint.pos[1] += velocity.y;
+                
+                // Calculate bounds for color points (considering aspect ratio)
+                const maxX = aspectRatio;
+                const minX = -aspectRatio;
+                const maxY = 1;
+                const minY = -1;
+                
+                // Bounce off boundaries
+                if (colorPoint.pos[0] <= minX || colorPoint.pos[0] >= maxX) {
+                    velocity.x = -velocity.x;
+                    colorPoint.pos[0] = Math.max(minX, Math.min(maxX, colorPoint.pos[0])); // Clamp to bounds
+                }
+                if (colorPoint.pos[1] <= minY || colorPoint.pos[1] >= maxY) {
+                    velocity.y = -velocity.y;
+                    colorPoint.pos[1] = Math.max(minY, Math.min(maxY, colorPoint.pos[1])); // Clamp to bounds
+                }
+            }
+        }
+
+        // Update warp calculations
+        if (this.warps) {
+            this.warps.update();
+        }
     }
 }
 

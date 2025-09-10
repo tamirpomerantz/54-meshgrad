@@ -4,6 +4,7 @@ export class NoiseRenderer {
         this.enabled = false;
         this.noiseCanvas = null;
         this.noiseCtx = null;
+        this.noiseGenerated = false; // Track if noise has been generated
         this.setupNoiseCanvas();
     }
 
@@ -36,6 +37,9 @@ export class NoiseRenderer {
         this.noiseCanvas.height = this.webglCanvas.height;
         this.noiseCanvas.style.width = this.webglCanvas.style.width || this.webglCanvas.width + 'px';
         this.noiseCanvas.style.height = this.webglCanvas.style.height || this.webglCanvas.height + 'px';
+        
+        // Mark noise as needing regeneration due to size change
+        this.noiseGenerated = false;
     }
 
     generateNoise() {
@@ -61,13 +65,16 @@ export class NoiseRenderer {
 
         // Put the noise data onto the noise canvas
         this.noiseCtx.putImageData(imageData, 0, 0);
+        this.noiseGenerated = true; // Mark as generated
     }
 
     applyNoise() {
         if (!this.enabled) return;
 
-        // Generate fresh noise
-        this.generateNoise();
+        // Generate noise only once, or if canvas size changed
+        if (!this.noiseGenerated) {
+            this.generateNoise();
+        }
     }
 
     updateVisibility() {
@@ -81,6 +88,10 @@ export class NoiseRenderer {
         
         if (this.enabled) {
             this.updateCanvasSize();
+            // Generate noise when first enabled
+            if (!this.noiseGenerated) {
+                this.generateNoise();
+            }
         }
         
         this.updateVisibility();
@@ -93,9 +104,8 @@ export class NoiseRenderer {
     // Call this after canvas resize
     onResize() {
         this.updateCanvasSize();
-        if (this.enabled) {
-            this.generateNoise();
-        }
+        // updateCanvasSize() already marks noise as needing regeneration
+        // It will be regenerated on next applyNoise() call if enabled
     }
 
     // Clean up when destroying
