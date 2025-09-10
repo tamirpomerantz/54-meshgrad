@@ -238,3 +238,12 @@ input[type="color"]::-webkit-color-swatch {
     color: var(--text-color);
     opacity: 0.8;
 } 
+
+.logo {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    height: 32px;
+    pointer-events: none;
+    mix-blend-mode: difference;
+}
