@@ -258,10 +258,20 @@ export class Canvas {
     }
 
     setupEventListeners() {
+        // Mouse events
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('dblclick', this.handleDoubleClick.bind(this));
+        
+        // Touch events for mobile support
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Track double tap for mobile
+        this.lastTouchTime = 0;
+        this.touchTimeout = null;
     }
 
     handleDoubleClick(event) {
@@ -506,10 +516,135 @@ export class Canvas {
         this.draw();
     }
 
+    handleTouchStart(event) {
+        event.preventDefault(); // Prevent scrolling and zooming
+        
+        if (event.touches.length !== 1) return; // Only handle single touch
+
+        const rect = this.canvas.getBoundingClientRect();
+        const [x, y] = this.getCanvasCoordinates(event, rect);
+        const point = this.findPoint(x, y, rect);
+
+        // Handle double tap detection for removing warp points
+        const currentTime = Date.now();
+        const timeDiff = currentTime - this.lastTouchTime;
+        
+        if (timeDiff < 300 && point && point.type === 'warp') {
+            // Double tap detected on warp point - delete it
+            this.warp.parent.delete(point.index);
+            this.draw();
+            this.lastTouchTime = 0; // Reset to prevent triple tap issues
+            return;
+        }
+        
+        this.lastTouchTime = currentTime;
+
+        if (!point) {
+            // Add a single warp point
+            this.warp.parent.add_pair(this.warp.which, x, y);
+        } else if (point.type === 'warp') {
+            const p = this.warp.src[point.index];
+            this.drag = { 
+                type: 'warp',
+                index: point.index, 
+                startX: x, 
+                startY: y, 
+                origX: p[0], 
+                origY: p[1] 
+            };
+        } else if (point.type === 'color') {
+            const colorPoint = this.colorPoints.find(p => p.corner === point.corner);
+            if (!colorPoint) {
+                console.error('Color point not found:', point.corner);
+                return;
+            }
+            
+            this.drag = {
+                type: 'color',
+                corner: point.corner,
+                startX: x,
+                startY: y,
+                origPos: colorPoint.pos.slice()
+            };
+        }
+
+        this.draw();
+    }
+
+    handleTouchMove(event) {
+        event.preventDefault(); // Prevent scrolling
+        
+        if (event.touches.length !== 1 || !this.drag) return; // Only handle single touch
+
+        const rect = this.canvas.getBoundingClientRect();
+        const [x, y] = this.getCanvasCoordinates(event, rect);
+
+        if (this.drag.type === 'warp') {
+            const dx = x - this.drag.startX;
+            const dy = y - this.drag.startY;
+            
+            this.warp.src[this.drag.index] = [
+                this.drag.origX + dx,
+                this.drag.origY + dy
+            ];
+
+            this.warp.parent.update();
+        } else if (this.drag.type === 'color') {
+            const dx = x - this.drag.startX;
+            const dy = y - this.drag.startY;
+            
+            // Calculate new position
+            let newX = this.drag.origPos[0] + dx;
+            let newY = this.drag.origPos[1] + dy;
+            
+            // Constrain to edges with aspect ratio consideration
+            const xBound = Math.min(0.95, 0.95 * this.aspectRatio);
+            const yBound = Math.min(0.95, 0.95 / this.aspectRatio);
+            
+            newX = Math.max(-xBound, Math.min(xBound, newX));
+            newY = Math.max(-yBound, Math.min(yBound, newY));
+            
+            // Update color point position
+            const point = this.colorPoints.find(p => p.corner === this.drag.corner);
+            point.pos = [newX, newY];
+        }
+
+        this.draw();
+    }
+
+    handleTouchEnd(event) {
+        event.preventDefault();
+        
+        if (!this.drag) return;
+
+        if (this.drag.type === 'warp') {
+            this.warp.parent.update();
+        }
+        
+        this.drag = null;
+        this.draw();
+    }
+
     getCanvasCoordinates(event, rect) {
         // Convert screen coordinates to clip space (-1 to 1)
-        const x = (event.clientX - rect.left) / rect.width * 2 - 1;
-        const y = -(event.clientY - rect.top) / rect.height * 2 + 1;
+        let clientX, clientY;
+        
+        if (event.touches && event.touches.length > 0) {
+            // Touch event
+            clientX = event.touches[0].clientX;
+            clientY = event.touches[0].clientY;
+        } else if (event.changedTouches && event.changedTouches.length > 0) {
+            // Touch end event
+            clientX = event.changedTouches[0].clientX;
+            clientY = event.changedTouches[0].clientY;
+        } else {
+            // Mouse event
+            clientX = event.clientX;
+            clientY = event.clientY;
+        }
+        
+        const x = (clientX - rect.left) / rect.width * 2 - 1;
+        const y = -(clientY - rect.top) / rect.height * 2 + 1;
         return [x, y];
     }
 
