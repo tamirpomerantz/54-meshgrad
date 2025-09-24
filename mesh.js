@@ -1,4 +1,4 @@
-import { VERTEX_SHADER, FRAGMENT_SHADER, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER } from './shaders.js';
+import { VERTEX_SHADER, FRAGMENT_SHADER, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER, POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER } from './shaders.js';
 
 const MAX_POINTS = 32;
 
@@ -131,15 +131,22 @@ export class Warps {
 
 export class Canvas {
     constructor(warp, canvas, colors) {
-    this.warp = warp;
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+	this.warp = warp;
+	this.canvas = canvas;
+	this.ctx = canvas.getContext("webgl", { preserveDrawingBuffer: true });
         this.radius = 10;
         this.colors = colors;
-    this.drag = null;
+	this.drag = null;
         this.showPoints = true;
         this.aspectRatio = this.canvas.width / this.canvas.height;
         this.colorSpace = 0; // Default to RGB
+        
+        // Levels adjustment properties
+        this.levels = {
+            low: 0.0,
+            mid: 1.0,
+            high: 1.0
+        };
         
         // Initialize color control points
         this.updateColorPoints();
@@ -166,9 +173,48 @@ export class Canvas {
         }
     }
 
+    setLevels(low, mid, high) {
+        this.levels.low = low;
+        this.levels.mid = mid;
+        this.levels.high = high;
+    }
+
     updateAspectRatio(newRatio) {
         this.aspectRatio = newRatio;
         this.updateColorPoints();
+    }
+
+    resizeFramebuffer() {
+        const gl = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+
+        // Delete existing texture
+        if (this.colorTexture) {
+            gl.deleteTexture(this.colorTexture);
+        }
+
+        // Create new texture with updated dimensions
+        this.colorTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Reattach texture to framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture, 0);
+
+        // Check framebuffer completeness
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Framebuffer not complete after resize');
+        }
+
+        // Unbind framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     updateColorPoints() {
@@ -193,6 +239,7 @@ export class Canvas {
     setupPrograms() {
         this.warpProgram = this.createProgram('warp', VERTEX_SHADER, FRAGMENT_SHADER);
         this.pointProgram = this.createProgram('points', POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER);
+        this.levelsProgram = this.createProgram('levels', POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER);
     }
 
     createProgram(name, vertexSource, fragmentSource) {
@@ -233,13 +280,13 @@ export class Canvas {
         const position = new Float32Array([-1,-1, 1,-1, 1,1, -1,1]);
         this.positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, position, gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, position, gl.STATIC_DRAW);
 
         // Texture coordinate buffer
         const texcoord = new Float32Array([0,0, 1,0, 1,1, 0,1]);
         this.texcoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.texcoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, texcoord, gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, texcoord, gl.STATIC_DRAW);
 
         // Points buffer
         this.pointsBuffer = gl.createBuffer();
@@ -247,14 +294,48 @@ export class Canvas {
         gl.bufferData(gl.ARRAY_BUFFER, MAX_POINTS * 2 * 4, gl.STATIC_DRAW);
 
         // Index buffer
-    this.indices = new Uint16Array([0,1,2, 2,3,0]);
+	this.indices = new Uint16Array([0,1,2, 2,3,0]);
         this.numIndices = this.indices.length;
         this.indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
+
+        // Setup framebuffer for post-processing
+        this.setupFramebuffer();
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    }
+
+    setupFramebuffer() {
+        const gl = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+
+        // Create framebuffer
+        this.framebuffer = gl.createFramebuffer();
+        
+        // Create texture for color attachment
+        this.colorTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Bind framebuffer and attach texture
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture, 0);
+
+        // Check framebuffer completeness
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Framebuffer not complete');
+        }
+
+        // Unbind framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     setupEventListeners() {
@@ -303,10 +384,14 @@ export class Canvas {
     draw() {
         const gl = this.ctx;
 
-    gl.clearColor(0.5, 0.5, 1.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+        // First pass: Render to framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        
+        gl.clearColor(0.5, 0.5, 1.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-    if (this.warp.npoints() >= 4) {
+        if (this.warp.npoints() >= 4) {
             this.drawMesh();
         }
 
@@ -315,7 +400,59 @@ export class Canvas {
             this.drawPoints();
         }
 
+        // Second pass: Apply levels adjustment and render to screen
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.applyLevels();
+
         gl.flush();
+    }
+
+    applyLevels() {
+        const gl = this.ctx;
+        
+        // Use the levels shader program
+        gl.useProgram(this.levelsProgram);
+        
+        // Clear the screen
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // Bind the rendered texture
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+        
+        // Set uniforms
+        this.setUniform(this.levelsProgram, 'u_Texture', gl.uniform1i, 0, 0);
+        this.setUniform(this.levelsProgram, 'u_LevelsLow', gl.uniform1f, 0, this.levels.low);
+        this.setUniform(this.levelsProgram, 'u_LevelsMid', gl.uniform1f, 0, this.levels.mid);
+        this.setUniform(this.levelsProgram, 'u_LevelsHigh', gl.uniform1f, 0, this.levels.high);
+        
+        // Set up attributes for fullscreen quad
+        const positionAttrib = gl.getAttribLocation(this.levelsProgram, "a_Position");
+        const texcoordAttrib = gl.getAttribLocation(this.levelsProgram, "a_TexCoord");
+        
+        // Position attribute
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+        gl.enableVertexAttribArray(positionAttrib);
+        gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0);
+        
+        // Texture coordinate attribute
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.texcoordBuffer);
+        gl.enableVertexAttribArray(texcoordAttrib);
+        gl.vertexAttribPointer(texcoordAttrib, 2, gl.FLOAT, false, 0, 0);
+        
+        // Draw fullscreen quad
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+        
+        // Clean up
+        gl.disableVertexAttribArray(positionAttrib);
+        gl.disableVertexAttribArray(texcoordAttrib);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     drawMesh() {

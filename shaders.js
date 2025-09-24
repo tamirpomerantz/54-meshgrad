@@ -268,4 +268,41 @@ export const POINT_FRAGMENT_SHADER = `
         if (r2 > 1.0) discard;
         gl_FragColor = vec4(color, 1.0);
     }
+`;
+
+// Post-processing shaders for levels adjustment
+export const POST_VERTEX_SHADER = `
+    attribute vec2 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_TexCoord;
+    
+    void main() {
+        gl_Position = vec4(a_Position, 0.0, 1.0);
+        v_TexCoord = a_TexCoord;
+    }
+`;
+
+export const LEVELS_FRAGMENT_SHADER = `
+    precision mediump float;
+    varying vec2 v_TexCoord;
+    uniform sampler2D u_Texture;
+    uniform float u_LevelsLow;
+    uniform float u_LevelsMid;
+    uniform float u_LevelsHigh;
+    
+    void main() {
+        vec4 color = texture2D(u_Texture, v_TexCoord);
+        
+        // Apply levels adjustment
+        // First, remap input range from [low, high] to [0, 1]
+        vec3 remapped = (color.rgb - u_LevelsLow) / (u_LevelsHigh - u_LevelsLow);
+        remapped = clamp(remapped, 0.0, 1.0);
+        
+        // Apply gamma correction (midtones adjustment)
+        // Gamma = 1.0 / u_LevelsMid
+        float gamma = 1.0 / u_LevelsMid;
+        vec3 adjusted = pow(remapped, vec3(gamma));
+        
+        gl_FragColor = vec4(adjusted, color.a);
+    }
 `; 

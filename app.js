@@ -135,6 +135,38 @@ class MeshGradientApp {
             }
         });
 
+        // Levels slider events
+        const levelsSliders = ['levelsLow', 'levelsMid', 'levelsHigh'];
+        levelsSliders.forEach(sliderId => {
+            const slider = document.getElementById(sliderId);
+            const valueDisplay = slider?.nextElementSibling;
+            
+            if (slider) {
+                slider.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    
+                    // Update value display
+                    if (valueDisplay) {
+                        if (sliderId === 'levelsMid') {
+                            valueDisplay.textContent = value.toFixed(1);
+                        } else {
+                            valueDisplay.textContent = value.toFixed(2);
+                        }
+                    }
+                    
+                    // Update levels in canvas
+                    if (this.meshCanvas) {
+                        const low = parseFloat(document.getElementById('levelsLow').value);
+                        const mid = parseFloat(document.getElementById('levelsMid').value);
+                        const high = parseFloat(document.getElementById('levelsHigh').value);
+                        
+                        this.meshCanvas.setLevels(low, mid, high);
+                        this.redraw();
+                    }
+                });
+            }
+        });
+
         // Button events
         document.getElementById('randomizeWarp')?.addEventListener('click', () => this.randomizeWarpPoints());
         document.getElementById('randomizeColors')?.addEventListener('click', () => this.randomizeColors());
@@ -161,9 +193,10 @@ class MeshGradientApp {
             // Update WebGL viewport to match new dimensions
             this.ctx.viewport(0, 0, width, height);
             
-            // Update aspect ratio in shader uniforms if needed
+            // Update aspect ratio and resize framebuffer
             if (this.meshCanvas) {
                 this.meshCanvas.updateAspectRatio(width / height);
+                this.meshCanvas.resizeFramebuffer();
             }
         }
 
@@ -319,6 +352,24 @@ class MeshGradientApp {
                 const icon = input.nextElementSibling?.querySelector('.material-icons-round');
                 if (icon) {
                     icon.style.color = color;
+                }
+            }
+        });
+
+        // Reset levels sliders to default values
+        const levelsDefaults = { levelsLow: 0, levelsMid: 1, levelsHigh: 1 };
+        Object.entries(levelsDefaults).forEach(([sliderId, defaultValue]) => {
+            const slider = document.getElementById(sliderId);
+            const valueDisplay = slider?.nextElementSibling;
+            
+            if (slider) {
+                slider.value = defaultValue;
+                if (valueDisplay) {
+                    if (sliderId === 'levelsMid') {
+                        valueDisplay.textContent = defaultValue.toFixed(1);
+                    } else {
+                        valueDisplay.textContent = defaultValue.toFixed(2);
+                    }
                 }
             }
         });
