@@ -184,6 +184,61 @@
                     </div>
                 </div>
 
+                <div class="noise-controls">
+                    <div class="background-title">
+                        <span class="material-icons-round">grain</span>
+                        <span class="control-title">Noise</span>
+                        <button class="collapse-btn" data-target="noise-content">
+                            <span class="material-icons-round">expand_less</span>
+                        </button>
+                    </div>
+                    <div id="noise-content" class="section-content">
+                        <div class="slider-group">
+                            <label for="noiseType">Type</label>
+                            <select id="noiseType" class="select-minimal">
+                                <option value="none">None</option>
+                                <option value="blackwhite">Black & White</option>
+                                <option value="colors">Colors</option>
+                            </select>
+                        </div>
+                        <div id="noiseControls" class="noise-controls-options" style="display: none;">
+                            <div class="slider-group">
+                                <label for="noiseBlend">Blend</label>
+                                <select id="noiseBlend" class="select-minimal">
+                                    <option value="normal">Normal</option>
+                                    <option value="overlay">Overlay</option>
+                                    <option value="multiply">Multiply</option>
+                                    <option value="difference">Difference</option>
+                                    <option value="screen">Screen</option>
+                                </select>
+                            </div>
+                            <div class="slider-group">
+                                <label for="noiseAlgorithm">Algo</label>
+                                <select id="noiseAlgorithm" class="select-minimal">
+                                    <option value="random">Random</option>
+                                    <option value="perlin">Perlin</option>
+                                    <option value="simplex">Simplex</option>
+                                </select>
+                            </div>
+                            <div class="slider-group">
+                                <label for="noiseSize">Size</label>
+                                <input type="range" id="noiseSize" min="1" max="200" step="1" value="20" class="effects-slider">
+                                <span class="slider-value">20</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="noiseOpacity">Opacity</label>
+                                <input type="range" id="noiseOpacity" min="0" max="100" step="1" value="50" class="effects-slider">
+                                <span class="slider-value">50%</span>
+                            </div>
+                            <div class="slider-group">
+                                <label for="wrapNoise">Wrap</label>
+                                <input type="range" id="wrapNoise" min="0" max="100" step="1" value="100" class="effects-slider">
+                                <span class="slider-value">100%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="background-controls">
                     <div class="background-title">
                         <span class="material-icons-round">image</span>
@@ -194,7 +249,7 @@
                     </div>
                     <div id="background-content" class="section-content">
                     <div class="background-upload-section">
-                        <input type="file" id="backgroundImage" accept="image/png" style="display: none;">
+                        <input type="file" id="backgroundImage" accept="image/png,image/jpeg,image/jpg" style="display: none;">
                         <button id="uploadBackground" class="upload-btn" title="Upload Background Image">
                             <span class="material-icons-round">cloud_upload</span>
                             <span>Upload Image</span>
@@ -223,7 +278,7 @@
                             <span class="slider-value">100%</span>
                         </div>
                         <div class="slider-group">
-                            <label for="backgroundBlend">Blending</label>
+                            <label for="backgroundBlend">Blend</label>
                             <select id="backgroundBlend" class="select-minimal">
                                 <option value="multiply">Multiply</option>
                                 <option value="overlay">Overlay</option>
@@ -233,6 +288,16 @@
                                 <option value="color-dodge">Color Dodge</option>
                                 <option value="color-burn">Color Burn</option>
                             </select>
+                        </div>
+                        <div class="slider-group">
+                            <label for="backgroundShiftX">Shift X</label>
+                            <input type="range" id="backgroundShiftX" min="0" max="100" step="1" value="0" class="effects-slider">
+                            <span class="slider-value">0%</span>
+                        </div>
+                        <div class="slider-group">
+                            <label for="backgroundShiftY">Shift Y</label>
+                            <input type="range" id="backgroundShiftY" min="0" max="100" step="1" value="0" class="effects-slider">
+                            <span class="slider-value">0%</span>
                         </div>
                     </div>
                     </div>

@@ -32,7 +32,16 @@ export const FRAGMENT_SHADER = `
     uniform float u_BackgroundOpacity; // Background image opacity
     uniform float u_BackgroundScale; // Background image scale
     uniform int u_BackgroundBlendMode; // Background blend mode
+    uniform float u_BackgroundShiftX; // Background X shift (0.0 to 1.0)
+    uniform float u_BackgroundShiftY; // Background Y shift (0.0 to 1.0)
     uniform bool u_BackgroundEnabled; // Whether background is enabled
+    uniform bool u_NoiseEnabled; // Whether noise is enabled
+    uniform int u_NoiseType; // Noise type: 0=none, 1=blackwhite, 2=colors
+    uniform int u_NoiseBlendMode; // Noise blend mode
+    uniform int u_NoiseAlgorithm; // Noise algorithm: 0=random, 1=perlin, 2=simplex
+    uniform float u_NoiseSize; // Noise size
+    uniform float u_NoiseOpacity; // Noise opacity
+    uniform float u_NoiseWrap; // Wrap amount: 0.0 = no wrap, 1.0 = full wrap
 
     float rbf(vec2 x, vec2 y, float s2) {
         vec2 d = vec2(
@@ -412,10 +421,108 @@ export const FRAGMENT_SHADER = `
         return vec4(result, 1.0);
     }
 
+    // Noise generation functions
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
+
+    // Perlin noise implementation
+    float perlinNoise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+        
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        
+        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    }
+
+    // Simplex noise implementation (simplified)
+    float simplexNoise(vec2 st) {
+        const float K1 = 0.366025404; // (sqrt(3)-1)/2
+        const float K2 = 0.211324865; // (3-sqrt(3))/6
+        
+        vec2 i = floor(st + (st.x + st.y) * K1);
+        vec2 a = st - i + (i.x + i.y) * K2;
+        float m = step(a.y, a.x);
+        vec2 o = vec2(m, 1.0 - m);
+        vec2 b = a - o + K2;
+        vec2 c = a - 1.0 + 2.0 * K2;
+        
+        vec3 h = max(0.5 - vec3(dot(a, a), dot(b, b), dot(c, c)), 0.0);
+        
+        // Generate random gradients for each point
+        float grad1 = random(i) * 2.0 - 1.0;
+        float grad2 = random(i + o) * 2.0 - 1.0;
+        float grad3 = random(i + 1.0) * 2.0 - 1.0;
+        
+        vec3 n = h * h * h * h * vec3(dot(a, vec2(grad1, grad1)), dot(b, vec2(grad2, grad2)), dot(c, vec2(grad3, grad3)));
+        
+        return dot(n, vec3(70.0));
+    }
+
+
+    vec3 generateNoise(vec2 uv, int type, int algorithm) {
+        float noiseValue = 0.0;
+        
+        if (algorithm == 0) { // Random - pixel-based
+            // Calculate pixel size: size 1 = 1px, size 200 = 200px
+            // Use a large base resolution to ensure fine control
+            float pixelSize = 800.0 / u_NoiseSize;
+            vec2 pixelUV = floor(uv * pixelSize) / pixelSize;
+            noiseValue = random(pixelUV);
+        } else if (algorithm == 1) { // Perlin - smooth interpolation
+            // Reverse scale: larger size = more detail
+            // Use higher multiplier for finer control
+            vec2 noiseUV = uv * (1001.0 - u_NoiseSize * 5.0);
+            noiseValue = perlinNoise(noiseUV);
+        } else if (algorithm == 2) { // Simplex - triangular grid
+            // Reverse scale: larger size = more detail
+            // Use higher multiplier for finer control
+            vec2 noiseUV = uv * (1001.0 - u_NoiseSize * 5.0);
+            noiseValue = simplexNoise(noiseUV);
+        }
+        
+        if (type == 1) { // Black & White
+            return vec3(noiseValue);
+        } else if (type == 2) { // Colors
+            float scale = (algorithm == 0) ? (800.0 / u_NoiseSize) : (1001.0 - u_NoiseSize * 5.0);
+            vec2 noiseUV2 = uv * scale + vec2(100.0, 200.0);
+            vec2 noiseUV3 = uv * scale + vec2(300.0, 400.0);
+            float r = noiseValue;
+            float g = 0.0;
+            float b = 0.0;
+            
+            if (algorithm == 0) { // Random - pixel-based
+                float pixelSize = 800.0 / u_NoiseSize;
+                vec2 pixelUV2 = floor(noiseUV2 * pixelSize) / pixelSize;
+                vec2 pixelUV3 = floor(noiseUV3 * pixelSize) / pixelSize;
+                g = random(pixelUV2);
+                b = random(pixelUV3);
+            } else if (algorithm == 1) { // Perlin
+                g = perlinNoise(noiseUV2);
+                b = perlinNoise(noiseUV3);
+            } else if (algorithm == 2) { // Simplex
+                g = simplexNoise(noiseUV2);
+                b = simplexNoise(noiseUV3);
+            }
+            
+            return vec3(r, g, b);
+        }
+        
+        return vec3(0.0);
+    }
+
     void main() {
         vec2 p = vec2(v_TexCoord.x * 2.0 - 1.0, v_TexCoord.y * 2.0 - 1.0);
         vec2 q = warpPoint(p);
         vec4 gradientColor = interpolateColors(q);
+        
+        vec3 finalColor = gradientColor.rgb;
         
         // Apply background image if enabled
         if (u_BackgroundEnabled) {
@@ -425,21 +532,49 @@ export const FRAGMENT_SHADER = `
             // Flip Y-axis to fix upside-down image
             backgroundUV.y = 1.0 - backgroundUV.y;
             
+            // Apply shift offset
+            backgroundUV.x += u_BackgroundShiftX;
+            backgroundUV.y += u_BackgroundShiftY;
+            
             // Apply scaling and tiling
             backgroundUV = fract(backgroundUV * u_BackgroundScale);
             
             vec4 backgroundSample = texture2D(u_BackgroundTexture, backgroundUV);
             
             // Apply blend mode
-            vec3 blendedColor = applyBlendMode(gradientColor.rgb, backgroundSample.rgb, u_BackgroundBlendMode);
+            vec3 blendedColor = applyBlendMode(finalColor, backgroundSample.rgb, u_BackgroundBlendMode);
             
             // Mix with original gradient based on opacity
-            vec3 finalColor = mix(gradientColor.rgb, blendedColor, u_BackgroundOpacity);
-            
-            gl_FragColor = vec4(finalColor, gradientColor.a);
-        } else {
-            gl_FragColor = gradientColor;
+            finalColor = mix(finalColor, blendedColor, u_BackgroundOpacity);
         }
+        
+        // Apply noise if enabled
+        if (u_NoiseEnabled) {
+            // Interpolate between unwarped and warped coordinates
+            vec2 unwarpedUV = (p + 1.0) * 0.5; // Convert from [-1,1] to [0,1]
+            vec2 warpedUV = (q + 1.0) * 0.5; // Convert from [-1,1] to [0,1]
+            vec2 noiseUV = mix(unwarpedUV, warpedUV, u_NoiseWrap);
+            
+            vec3 noiseColor = generateNoise(noiseUV, u_NoiseType, u_NoiseAlgorithm);
+            
+            // Apply noise blend mode
+            vec3 blendedNoise = finalColor;
+            if (u_NoiseBlendMode == 0) { // Normal
+                blendedNoise = mix(finalColor, noiseColor, u_NoiseOpacity);
+            } else if (u_NoiseBlendMode == 1) { // Overlay
+                blendedNoise = mix(finalColor, noiseColor, u_NoiseOpacity * 0.6);
+            } else if (u_NoiseBlendMode == 2) { // Multiply
+                blendedNoise = mix(finalColor, finalColor * noiseColor, u_NoiseOpacity);
+            } else if (u_NoiseBlendMode == 3) { // Difference
+                blendedNoise = mix(finalColor, abs(finalColor - noiseColor), u_NoiseOpacity);
+            } else if (u_NoiseBlendMode == 4) { // Screen
+                blendedNoise = mix(finalColor, 1.0 - (1.0 - finalColor) * (1.0 - noiseColor), u_NoiseOpacity);
+            }
+            
+            finalColor = blendedNoise;
+        }
+        
+        gl_FragColor = vec4(finalColor, gradientColor.a);
     }
 `;
 

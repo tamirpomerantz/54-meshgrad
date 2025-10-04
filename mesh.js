@@ -163,7 +163,20 @@ export class Canvas {
             opacity: 0.5,
             blendMode: 'multiply',
             scale: 1.0,
+            shiftX: 0.0, // X shift as percentage (0.0 to 1.0)
+            shiftY: 0.0, // Y shift as percentage (0.0 to 1.0)
             enabled: false
+        };
+        
+        // Noise properties
+        this.noise = {
+            enabled: false,
+            type: 'none', // 'none', 'blackwhite', 'colors'
+            blendMode: 'normal', // 'normal', 'overlay', 'multiply', 'difference', 'screen'
+            algorithm: 'random', // 'random', 'perlin', 'simplex', 'value'
+            size: 20,
+            opacity: 0.5,
+            wrap: 1.0 // Wrap amount: 0.0 = no wrap, 1.0 = full wrap
         };
         
         // Initialize color control points
@@ -202,7 +215,11 @@ export class Canvas {
         this.effects.pixelSize = pixelSize;
         this.effects.ditherSize = ditherSize;
         this.effects.ditherAlgorithm = ditherAlgorithm;
-        this.effects.rainbowIntensity = rainbowIntensity;
+        
+        // Only set rainbow intensity when effect type is rainbow
+        if (type === 'rainbow') {
+            this.effects.rainbowIntensity = rainbowIntensity;
+        }
     }
 
     setBackgroundImage(imageElement) {
@@ -246,7 +263,44 @@ export class Canvas {
     }
 
     setBackgroundScale(scale) {
-        this.backgroundImage.scale = scale / 100.0; // Convert percentage to 0-2 range
+        this.backgroundImage.scale = scale / 100.0; // Convert percentage to 0-1 range
+    }
+
+    setBackgroundShiftX(shiftX) {
+        this.backgroundImage.shiftX = shiftX / 100.0; // Convert percentage to 0-1
+    }
+
+    setBackgroundShiftY(shiftY) {
+        this.backgroundImage.shiftY = shiftY / 100.0; // Convert percentage to 0-1
+    }
+
+    // Noise methods
+    setNoiseEnabled(enabled) {
+        this.noise.enabled = enabled;
+    }
+
+    setNoiseType(type) {
+        this.noise.type = type;
+    }
+
+    setNoiseBlendMode(blendMode) {
+        this.noise.blendMode = blendMode;
+    }
+
+    setNoiseAlgorithm(algorithm) {
+        this.noise.algorithm = algorithm;
+    }
+
+    setNoiseSize(size) {
+        this.noise.size = size;
+    }
+
+    setNoiseOpacity(opacity) {
+        this.noise.opacity = opacity / 100.0; // Convert percentage to 0-1
+    }
+
+    setNoiseWrap(wrap) {
+        this.noise.wrap = wrap / 100.0; // Convert percentage to 0-1
     }
 
     updateAspectRatio(newRatio) {
@@ -767,6 +821,32 @@ export class Canvas {
         this.setUniform(this.warpProgram, 'u_BackgroundEnabled', gl.uniform1i, 0, this.backgroundImage.enabled ? 1 : 0);
         this.setUniform(this.warpProgram, 'u_BackgroundOpacity', gl.uniform1f, 0, this.backgroundImage.opacity);
         this.setUniform(this.warpProgram, 'u_BackgroundScale', gl.uniform1f, 0, this.backgroundImage.scale);
+        this.setUniform(this.warpProgram, 'u_BackgroundShiftX', gl.uniform1f, 0, this.backgroundImage.shiftX);
+        this.setUniform(this.warpProgram, 'u_BackgroundShiftY', gl.uniform1f, 0, this.backgroundImage.shiftY);
+        
+        // Noise uniforms
+        this.setUniform(this.warpProgram, 'u_NoiseEnabled', gl.uniform1i, 0, this.noise.enabled ? 1 : 0);
+        this.setUniform(this.warpProgram, 'u_NoiseSize', gl.uniform1f, 0, this.noise.size);
+        this.setUniform(this.warpProgram, 'u_NoiseOpacity', gl.uniform1f, 0, this.noise.opacity);
+        this.setUniform(this.warpProgram, 'u_NoiseWrap', gl.uniform1f, 0, this.noise.wrap);
+        
+        // Noise type mapping
+        const noiseTypeMap = {
+            'none': 0, 'blackwhite': 1, 'colors': 2
+        };
+        this.setUniform(this.warpProgram, 'u_NoiseType', gl.uniform1i, 0, noiseTypeMap[this.noise.type] || 0);
+        
+        // Noise blend mode mapping
+        const noiseBlendModeMap = {
+            'normal': 0, 'overlay': 1, 'multiply': 2, 'difference': 3, 'screen': 4
+        };
+        this.setUniform(this.warpProgram, 'u_NoiseBlendMode', gl.uniform1i, 0, noiseBlendModeMap[this.noise.blendMode] || 0);
+        
+        // Noise algorithm mapping
+        const noiseAlgorithmMap = {
+            'random': 0, 'perlin': 1, 'simplex': 2
+        };
+        this.setUniform(this.warpProgram, 'u_NoiseAlgorithm', gl.uniform1i, 0, noiseAlgorithmMap[this.noise.algorithm] || 0);
         
         // Blend mode mapping
         const blendModeMap = {
@@ -1211,16 +1291,13 @@ function redraw()
 
 function adjust() {
     const b = document.querySelector('.body');
-    const c = document.getElementById("canvas1");
-    const c2 = document.getElementById("canvas2");
+    const c = document.getElementById("meshCanvas");
+    if (!c) return; // Exit if canvas not found
     const r = c.getBoundingClientRect();
-    const r2 = c2.getBoundingClientRect();
-    const bo = b.getBoundingClientRect();
+    const bo = b ? b.getBoundingClientRect() : { height: window.innerHeight, width: window.innerWidth };
     const radius = Math.min(bo.height, (bo.width / 2) - 16);
     c.width = radius;
     c.height = radius;
-    c2.width = radius;
-    c2.height = radius;
 }
 
 let tut = 0;

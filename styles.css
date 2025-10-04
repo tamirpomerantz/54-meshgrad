@@ -312,6 +312,12 @@ input[type="color"]::-webkit-color-swatch {
     opacity: 0.8;
 }
 
+.noise-controls {
+    padding: 12px;
+    background: var(--secondary-bg);
+    border-radius: 8px;
+}
+
 .background-controls {
     padding: 12px;
     background: var(--secondary-bg);
@@ -501,6 +507,7 @@ input[type="color"]::-webkit-color-swatch {
 .clear-btn .material-icons-round {
     font-size: 14px;
 }
+
 
 .slider-group:last-child {
     margin-bottom: 0;

@@ -280,14 +280,16 @@ class MeshGradientApp {
                     rainbowValueDisplay.textContent = value.toString();
                 }
                 
-                // Update effect in canvas
+                // Only update effect if rainbow is currently selected
                 if (this.meshCanvas) {
                     const effectType = document.getElementById('effectType').value;
-                    const pixelSize = parseFloat(document.getElementById('pixelSize').value);
-                    const ditherSize = parseFloat(document.getElementById('ditherSize').value);
-                    const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
-                    this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, ditherAlgorithm, value);
-                    this.redraw();
+                    if (effectType === 'rainbow') {
+                        const pixelSize = parseFloat(document.getElementById('pixelSize').value);
+                        const ditherSize = parseFloat(document.getElementById('ditherSize').value);
+                        const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
+                        this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, ditherAlgorithm, value);
+                        this.redraw();
+                    }
                 }
             });
         }
@@ -297,6 +299,10 @@ class MeshGradientApp {
         const backgroundOpacityDisplay = backgroundOpacitySlider?.nextElementSibling;
         const backgroundScaleSlider = document.getElementById('backgroundScale');
         const backgroundScaleDisplay = backgroundScaleSlider?.nextElementSibling;
+        const backgroundShiftXSlider = document.getElementById('backgroundShiftX');
+        const backgroundShiftXDisplay = backgroundShiftXSlider?.nextElementSibling;
+        const backgroundShiftYSlider = document.getElementById('backgroundShiftY');
+        const backgroundShiftYDisplay = backgroundShiftYSlider?.nextElementSibling;
         const backgroundBlendSelect = document.getElementById('backgroundBlend');
         const backgroundImageInput = document.getElementById('backgroundImage');
         const uploadBackgroundBtn = document.getElementById('uploadBackground');
@@ -305,6 +311,17 @@ class MeshGradientApp {
         const backgroundImagePreview = document.getElementById('backgroundImagePreview');
         const backgroundImageName = document.getElementById('backgroundImageName');
         const backgroundImageControls = document.getElementById('backgroundImageControls');
+        
+        // Noise controls
+        const noiseTypeSelect = document.getElementById('noiseType');
+        const noiseBlendSelect = document.getElementById('noiseBlend');
+        const noiseAlgorithmSelect = document.getElementById('noiseAlgorithm');
+        const noiseSizeSlider = document.getElementById('noiseSize');
+        const noiseSizeDisplay = noiseSizeSlider?.nextElementSibling;
+        const noiseOpacitySlider = document.getElementById('noiseOpacity');
+        const noiseOpacityDisplay = noiseOpacitySlider?.nextElementSibling;
+        const wrapNoiseSlider = document.getElementById('wrapNoise');
+        const wrapNoiseDisplay = wrapNoiseSlider?.nextElementSibling;
 
         // Background opacity slider
         if (backgroundOpacitySlider) {
@@ -342,6 +359,42 @@ class MeshGradientApp {
             });
         }
 
+        // Background shift X slider
+        if (backgroundShiftXSlider) {
+            backgroundShiftXSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (backgroundShiftXDisplay) {
+                    backgroundShiftXDisplay.textContent = value + '%';
+                }
+                
+                // Update background shift X
+                if (this.meshCanvas) {
+                    this.meshCanvas.setBackgroundShiftX(value);
+                    this.redraw();
+                }
+            });
+        }
+
+        // Background shift Y slider
+        if (backgroundShiftYSlider) {
+            backgroundShiftYSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (backgroundShiftYDisplay) {
+                    backgroundShiftYDisplay.textContent = value + '%';
+                }
+                
+                // Update background shift Y
+                if (this.meshCanvas) {
+                    this.meshCanvas.setBackgroundShiftY(value);
+                    this.redraw();
+                }
+            });
+        }
+
         // Background blend mode
         if (backgroundBlendSelect) {
             backgroundBlendSelect.addEventListener('change', (e) => {
@@ -363,7 +416,7 @@ class MeshGradientApp {
 
             backgroundImageInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
-                if (file && file.type === 'image/png') {
+                if (file && (file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/jpg')) {
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         const img = new Image();
@@ -396,7 +449,7 @@ class MeshGradientApp {
                     };
                     reader.readAsDataURL(file);
                 } else {
-                    alert('Please select a PNG image file.');
+                    alert('Please select a PNG or JPEG image file.');
                 }
             });
         }
@@ -423,6 +476,100 @@ class MeshGradientApp {
                     if (backgroundImageInput) {
                         backgroundImageInput.value = '';
                     }
+                }
+            });
+        }
+
+        // Noise controls
+        const noiseControls = document.getElementById('noiseControls');
+        
+        if (noiseTypeSelect) {
+            noiseTypeSelect.addEventListener('change', (e) => {
+                if (this.meshCanvas) {
+                    this.meshCanvas.setNoiseType(e.target.value);
+                    if (e.target.value === 'none') {
+                        this.meshCanvas.setNoiseEnabled(false);
+                        // Hide noise controls when type is 'none'
+                        if (noiseControls) {
+                            noiseControls.style.display = 'none';
+                        }
+                    } else {
+                        this.meshCanvas.setNoiseEnabled(true);
+                        // Show noise controls when type is not 'none'
+                        if (noiseControls) {
+                            noiseControls.style.display = 'block';
+                        }
+                    }
+                    this.redraw();
+                }
+            });
+        }
+
+        if (noiseBlendSelect) {
+            noiseBlendSelect.addEventListener('change', (e) => {
+                if (this.meshCanvas) {
+                    this.meshCanvas.setNoiseBlendMode(e.target.value);
+                    this.redraw();
+                }
+            });
+        }
+
+        if (noiseAlgorithmSelect) {
+            noiseAlgorithmSelect.addEventListener('change', (e) => {
+                if (this.meshCanvas) {
+                    this.meshCanvas.setNoiseAlgorithm(e.target.value);
+                    // Enable noise when algorithm is selected
+                    this.meshCanvas.setNoiseEnabled(true);
+                    this.redraw();
+                }
+            });
+        }
+
+        if (noiseSizeSlider) {
+            noiseSizeSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (noiseSizeDisplay) {
+                    noiseSizeDisplay.textContent = value;
+                }
+                if (this.meshCanvas) {
+                    this.meshCanvas.setNoiseSize(value);
+                    // Only enable noise if a type is selected (not 'none')
+                    const currentType = document.getElementById('noiseType')?.value;
+                    if (currentType && currentType !== 'none') {
+                        this.meshCanvas.setNoiseEnabled(true);
+                    }
+                    this.redraw();
+                }
+            });
+        }
+
+        if (noiseOpacitySlider) {
+            noiseOpacitySlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (noiseOpacityDisplay) {
+                    noiseOpacityDisplay.textContent = value + '%';
+                }
+                if (this.meshCanvas) {
+                    this.meshCanvas.setNoiseOpacity(value);
+                    // Only enable noise if a type is selected (not 'none')
+                    const currentType = document.getElementById('noiseType')?.value;
+                    if (currentType && currentType !== 'none') {
+                        this.meshCanvas.setNoiseEnabled(true);
+                    }
+                    this.redraw();
+                }
+            });
+        }
+
+        if (wrapNoiseSlider) {
+            wrapNoiseSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (wrapNoiseDisplay) {
+                    wrapNoiseDisplay.textContent = value + '%';
+                }
+                if (this.meshCanvas) {
+                    this.meshCanvas.setNoiseWrap(value);
+                    this.redraw();
                 }
             });
         }
@@ -745,8 +892,54 @@ class MeshGradientApp {
             }
         }
         
+        if (backgroundShiftXSlider) {
+            backgroundShiftXSlider.value = 0;
+            if (backgroundShiftXDisplay) {
+                backgroundShiftXDisplay.textContent = '0%';
+            }
+        }
+        
+        if (backgroundShiftYSlider) {
+            backgroundShiftYSlider.value = 0;
+            if (backgroundShiftYDisplay) {
+                backgroundShiftYDisplay.textContent = '0%';
+            }
+        }
+        
         if (backgroundBlendSelect) {
             backgroundBlendSelect.value = 'multiply';
+        }
+        
+        // Reset noise controls
+        if (noiseTypeSelect) {
+            noiseTypeSelect.value = 'none';
+        }
+        if (noiseControls) {
+            noiseControls.style.display = 'none';
+        }
+        if (noiseBlendSelect) {
+            noiseBlendSelect.value = 'normal';
+        }
+        if (noiseAlgorithmSelect) {
+            noiseAlgorithmSelect.value = 'random';
+        }
+        if (noiseSizeSlider) {
+            noiseSizeSlider.value = 20;
+            if (noiseSizeDisplay) {
+                noiseSizeDisplay.textContent = '20';
+            }
+        }
+        if (noiseOpacitySlider) {
+            noiseOpacitySlider.value = 50;
+            if (noiseOpacityDisplay) {
+                noiseOpacityDisplay.textContent = '50%';
+            }
+        }
+        if (wrapNoiseSlider) {
+            wrapNoiseSlider.value = 100;
+            if (wrapNoiseDisplay) {
+                wrapNoiseDisplay.textContent = '100%';
+            }
         }
         
         // Reset background image UI state
@@ -763,9 +956,10 @@ class MeshGradientApp {
             backgroundImageInput.value = '';
         }
         
-        // Remove background image on reset
+        // Remove background image and disable noise on reset
         if (this.meshCanvas) {
             this.meshCanvas.removeBackgroundImage();
+            this.meshCanvas.setNoiseEnabled(false);
         }
 
         this.warps = new Warps();
