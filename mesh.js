@@ -1,4 +1,4 @@
-import { VERTEX_SHADER, FRAGMENT_SHADER, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER, POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER, PIXELATE_FRAGMENT_SHADER, DITHER_FRAGMENT_SHADER } from './shaders.js';
+import { VERTEX_SHADER, FRAGMENT_SHADER, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER, POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER, PIXELATE_FRAGMENT_SHADER, DITHER_FRAGMENT_SHADER, RAINBOW_FRAGMENT_SHADER } from './shaders.js';
 
 const MAX_POINTS = 32;
 
@@ -153,7 +153,8 @@ export class Canvas {
             type: 'none',
             pixelSize: 8,
             ditherSize: 4,
-            ditherAlgorithm: 'ordered'
+            ditherAlgorithm: 'ordered',
+            rainbowIntensity: 1
         };
         
         // Initialize color control points
@@ -187,11 +188,12 @@ export class Canvas {
         this.levels.high = high;
     }
 
-    setEffect(type, pixelSize = 8, ditherSize = 4, ditherAlgorithm = 'ordered') {
+    setEffect(type, pixelSize = 8, ditherSize = 4, ditherAlgorithm = 'ordered', rainbowIntensity = 3) {
         this.effects.type = type;
         this.effects.pixelSize = pixelSize;
         this.effects.ditherSize = ditherSize;
         this.effects.ditherAlgorithm = ditherAlgorithm;
+        this.effects.rainbowIntensity = rainbowIntensity;
     }
 
     updateAspectRatio(newRatio) {
@@ -271,6 +273,7 @@ export class Canvas {
         this.levelsProgram = this.createProgram('levels', POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER);
         this.pixelateProgram = this.createProgram('pixelate', POST_VERTEX_SHADER, PIXELATE_FRAGMENT_SHADER);
         this.ditherProgram = this.createProgram('dither', POST_VERTEX_SHADER, DITHER_FRAGMENT_SHADER);
+        this.rainbowProgram = this.createProgram('rainbow', POST_VERTEX_SHADER, RAINBOW_FRAGMENT_SHADER);
     }
 
     createProgram(name, vertexSource, fragmentSource) {
@@ -505,8 +508,9 @@ export class Canvas {
     applyEffects() {
         const gl = this.ctx;
         
-        if (this.effects.type === 'none') {
-            // No effect - just copy the levels-adjusted texture to screen
+        if (this.effects.type === 'none' || this.effects.type === 'rainbow') {
+            // No effect or rainbow - just copy the levels-adjusted texture to screen
+            // Rainbow effect is handled in the main shader, not as post-processing
             this.copyTexture(this.colorTexture2);
         } else if (this.effects.type === 'pixelate') {
             // Apply pixelate effect
@@ -618,6 +622,54 @@ export class Canvas {
         this.renderFullscreenQuad(this.ditherProgram);
     }
 
+    applyRainbow() {
+        const gl = this.ctx;
+        
+        // Use the rainbow shader program
+        gl.useProgram(this.rainbowProgram);
+        
+        // Clear the screen
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // Bind the levels-adjusted texture from framebuffer2
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture2);
+        
+        // Set basic uniforms
+        this.setUniform(this.rainbowProgram, 'u_Texture', gl.uniform1i, 0, 0);
+        this.setUniform(this.rainbowProgram, 'u_RainbowIntensity', gl.uniform1f, 0, this.effects.rainbowIntensity);
+        
+        // Set resolution uniform directly
+        const resolutionLoc = gl.getUniformLocation(this.rainbowProgram, 'u_Resolution');
+        gl.uniform2f(resolutionLoc, this.canvas.width, this.canvas.height);
+        
+        // Set color uniforms (the 4 user colors)
+        const hexToRGBA = hex => {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            return [r, g, b, 1];
+        };
+        
+        // Get colors from corner positions
+        const colors = [
+            this.colors.tl, // Top-left
+            this.colors.tr, // Top-right
+            this.colors.bl, // Bottom-left
+            this.colors.br  // Bottom-right
+        ];
+        
+        colors.forEach((color, index) => {
+            const uniformName = `u_Color${index + 1}`;
+            const colorLoc = gl.getUniformLocation(this.rainbowProgram, uniformName);
+            const rgba = hexToRGBA(color);
+            gl.uniform4f(colorLoc, rgba[0], rgba[1], rgba[2], rgba[3]);
+        });
+        
+        this.renderFullscreenQuad(this.rainbowProgram);
+    }
+
     renderFullscreenQuad(program) {
         const gl = this.ctx;
         
@@ -656,6 +708,7 @@ export class Canvas {
         this.setUniform(this.warpProgram, 'npoints', gl.uniform1i, 0, this.warp.npoints());
         this.setUniform(this.warpProgram, 'aspectRatio', gl.uniform1f, 0, this.aspectRatio);
         this.setUniform(this.warpProgram, 'colorSpace', gl.uniform1i, 0, this.colorSpace);
+        this.setUniform(this.warpProgram, 'u_RainbowIntensity', gl.uniform1f, 0, this.effects.rainbowIntensity);
         
         // Flatten the points array and ensure it's properly formatted
         const points = this.warp.src.slice(0, this.warp.npoints()).flat();

@@ -172,17 +172,25 @@ class MeshGradientApp {
             const effectType = e.target.value;
             const pixelateOptions = document.getElementById('pixelateOptions');
             const ditherOptions = document.getElementById('ditherOptions');
+            const rainbowOptions = document.getElementById('rainbowOptions');
             
             // Show/hide controls based on effect type
             if (effectType === 'pixelate') {
                 pixelateOptions.style.display = 'block';
                 ditherOptions.style.display = 'none';
+                rainbowOptions.style.display = 'none';
             } else if (effectType === 'dither') {
                 pixelateOptions.style.display = 'none';
                 ditherOptions.style.display = 'block';
+                rainbowOptions.style.display = 'none';
+            } else if (effectType === 'rainbow') {
+                pixelateOptions.style.display = 'none';
+                ditherOptions.style.display = 'none';
+                rainbowOptions.style.display = 'block';
             } else {
                 pixelateOptions.style.display = 'none';
                 ditherOptions.style.display = 'none';
+                rainbowOptions.style.display = 'none';
             }
             
             // Update effect in canvas
@@ -190,7 +198,8 @@ class MeshGradientApp {
                 const pixelSize = parseFloat(document.getElementById('pixelSize').value);
                 const ditherSize = parseFloat(document.getElementById('ditherSize').value);
                 const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
-                this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, ditherAlgorithm);
+                const rainbowIntensity = parseFloat(document.getElementById('rainbowIntensity').value);
+                this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, ditherAlgorithm, rainbowIntensity);
                 this.redraw();
             }
         });
@@ -252,10 +261,36 @@ class MeshGradientApp {
                 const effectType = document.getElementById('effectType').value;
                 const pixelSize = parseFloat(document.getElementById('pixelSize').value);
                 const ditherSize = parseFloat(document.getElementById('ditherSize').value);
-                this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, algorithm);
+                const rainbowIntensity = parseFloat(document.getElementById('rainbowIntensity').value);
+                this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, algorithm, rainbowIntensity);
                 this.redraw();
             }
         });
+
+        // Rainbow intensity slider event
+        const rainbowIntensitySlider = document.getElementById('rainbowIntensity');
+        const rainbowValueDisplay = rainbowIntensitySlider?.nextElementSibling;
+        
+        if (rainbowIntensitySlider) {
+            rainbowIntensitySlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (rainbowValueDisplay) {
+                    rainbowValueDisplay.textContent = value.toString();
+                }
+                
+                // Update effect in canvas
+                if (this.meshCanvas) {
+                    const effectType = document.getElementById('effectType').value;
+                    const pixelSize = parseFloat(document.getElementById('pixelSize').value);
+                    const ditherSize = parseFloat(document.getElementById('ditherSize').value);
+                    const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
+                    this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, ditherAlgorithm, value);
+                    this.redraw();
+                }
+            });
+        }
 
         // Button events
         document.getElementById('randomizeWarp')?.addEventListener('click', () => this.randomizeWarpPoints());
@@ -475,6 +510,10 @@ class MeshGradientApp {
         const ditherValueDisplay = ditherSizeSlider?.nextElementSibling;
         const ditherAlgorithmSelect = document.getElementById('ditherAlgorithm');
         
+        const rainbowIntensitySlider = document.getElementById('rainbowIntensity');
+        const rainbowOptions = document.getElementById('rainbowOptions');
+        const rainbowValueDisplay = rainbowIntensitySlider?.nextElementSibling;
+        
         if (effectTypeSelect) {
             effectTypeSelect.value = 'none';
         }
@@ -485,6 +524,10 @@ class MeshGradientApp {
         
         if (ditherOptions) {
             ditherOptions.style.display = 'none';
+        }
+        
+        if (rainbowOptions) {
+            rainbowOptions.style.display = 'none';
         }
         
         if (pixelSizeSlider) {
@@ -503,6 +546,13 @@ class MeshGradientApp {
         
         if (ditherAlgorithmSelect) {
             ditherAlgorithmSelect.value = 'ordered';
+        }
+        
+        if (rainbowIntensitySlider) {
+            rainbowIntensitySlider.value = 1;
+            if (rainbowValueDisplay) {
+                rainbowValueDisplay.textContent = '1';
+            }
         }
 
         this.warps = new Warps();

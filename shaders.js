@@ -27,6 +27,7 @@ export const FRAGMENT_SHADER = `
     uniform vec2 colorPos4;
     uniform float aspectRatio;
     uniform int colorSpace; // 0: RGB, 1: OKLAB, 2: HSL, 3: LCH
+    uniform float u_RainbowIntensity; // Rainbow effect intensity
 
     float rbf(vec2 x, vec2 y, float s2) {
         vec2 d = vec2(
@@ -162,6 +163,65 @@ export const FRAGMENT_SHADER = `
         return oklab2rgb(lab);
     }
 
+    // Convert RGB to HSV
+    vec3 rgb2hsv(vec3 c) {
+        vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+        vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+        vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+        
+        float d = q.x - min(q.w, q.y);
+        float e = 1.0e-10;
+        return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    }
+    
+    // Convert HSV to RGB
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
+    
+    // Generate complementary colors
+    vec3 getComplementaryColor(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.5, 1.0); // Shift hue by 180 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate triadic colors (120 degrees apart)
+    vec3 getTriadicColor1(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.333, 1.0); // Shift hue by 120 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    vec3 getTriadicColor2(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.667, 1.0); // Shift hue by 240 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate tetradic colors (90 degrees apart)
+    vec3 getTetradicColor1(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.25, 1.0); // Shift hue by 90 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    vec3 getTetradicColor2(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.75, 1.0); // Shift hue by 270 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate rainbow colors based on intensity
+    vec3 getRainbowColor(vec3 baseColor, float intensity) {
+        vec3 hsv = rgb2hsv(baseColor);
+        float hueShift = intensity / 10.0; // Normalize intensity
+        hsv.x = mod(hsv.x + hueShift, 1.0);
+        return hsv2rgb(hsv);
+    }
+
     vec3 interpolateInColorSpace(vec3 color1, vec3 color2, float t) {
         if (colorSpace == 1) { // OKLAB
             vec3 oklab1 = rgb2oklab(color1);
@@ -224,12 +284,75 @@ export const FRAGMENT_SHADER = `
         w3 /= wSum;
         w4 /= wSum;
 
-        // Interpolate in selected color space
-        vec3 result = vec3(0.0);
+        // Get base colors
         vec3 c1 = u_color1.rgb;
         vec3 c2 = u_color2.rgb;
         vec3 c3 = u_color3.rgb;
         vec3 c4 = u_color4.rgb;
+
+        // Apply rainbow effect to base colors if intensity > 1
+        if (u_RainbowIntensity > 1.5) {
+            // Create multiple rainbow factors for more color variation
+            float rainbowFactor1 = sin(p.x * 2.0 * 3.14159 * u_RainbowIntensity + p.y * 1.5 * 3.14159 * u_RainbowIntensity) * 0.5 + 0.5;
+            float rainbowFactor2 = sin(p.x * 1.5 * 3.14159 * u_RainbowIntensity + p.y * 2.0 * 3.14159 * u_RainbowIntensity) * 0.5 + 0.5;
+            float rainbowFactor3 = sin(p.x * 2.5 * 3.14159 * u_RainbowIntensity + p.y * 2.5 * 3.14159 * u_RainbowIntensity) * 0.5 + 0.5;
+            
+            // Generate rainbow variations of each color with more vibrant results
+            if (u_RainbowIntensity < 2.5) {
+                // Intensity 2: Mix with complementary colors (more vibrant)
+                c1 = mix(c1, getComplementaryColor(c1), rainbowFactor1 * 0.5);
+                c2 = mix(c2, getComplementaryColor(c2), rainbowFactor2 * 0.5);
+                c3 = mix(c3, getComplementaryColor(c3), rainbowFactor3 * 0.5);
+                c4 = mix(c4, getComplementaryColor(c4), rainbowFactor1 * 0.5);
+            } else if (u_RainbowIntensity < 3.5) {
+                // Intensity 3: Triadic colors with more variation
+                vec3 triadic1_1 = getTriadicColor1(c1);
+                vec3 triadic2_1 = getTriadicColor2(c1);
+                c1 = mix(c1, mix(triadic1_1, triadic2_1, rainbowFactor1), rainbowFactor1 * 0.6);
+                
+                vec3 triadic1_2 = getTriadicColor1(c2);
+                vec3 triadic2_2 = getTriadicColor2(c2);
+                c2 = mix(c2, mix(triadic1_2, triadic2_2, rainbowFactor2), rainbowFactor2 * 0.6);
+                
+                vec3 triadic1_3 = getTriadicColor1(c3);
+                vec3 triadic2_3 = getTriadicColor2(c3);
+                c3 = mix(c3, mix(triadic1_3, triadic2_3, rainbowFactor3), rainbowFactor3 * 0.6);
+                
+                vec3 triadic1_4 = getTriadicColor1(c4);
+                vec3 triadic2_4 = getTriadicColor2(c4);
+                c4 = mix(c4, mix(triadic1_4, triadic2_4, rainbowFactor1), rainbowFactor1 * 0.6);
+            } else if (u_RainbowIntensity < 4.5) {
+                // Intensity 4: Tetradic colors with enhanced vibrancy
+                vec3 tetradic1_1 = getTetradicColor1(c1);
+                vec3 complementary1 = getComplementaryColor(c1);
+                vec3 tetradic2_1 = getTetradicColor2(c1);
+                c1 = mix(c1, mix(tetradic1_1, mix(complementary1, tetradic2_1, rainbowFactor1), rainbowFactor1), rainbowFactor1 * 0.7);
+                
+                vec3 tetradic1_2 = getTetradicColor1(c2);
+                vec3 complementary2 = getComplementaryColor(c2);
+                vec3 tetradic2_2 = getTetradicColor2(c2);
+                c2 = mix(c2, mix(tetradic1_2, mix(complementary2, tetradic2_2, rainbowFactor2), rainbowFactor2), rainbowFactor2 * 0.7);
+                
+                vec3 tetradic1_3 = getTetradicColor1(c3);
+                vec3 complementary3 = getComplementaryColor(c3);
+                vec3 tetradic2_3 = getTetradicColor2(c3);
+                c3 = mix(c3, mix(tetradic1_3, mix(complementary3, tetradic2_3, rainbowFactor3), rainbowFactor3), rainbowFactor3 * 0.7);
+                
+                vec3 tetradic1_4 = getTetradicColor1(c4);
+                vec3 complementary4 = getComplementaryColor(c4);
+                vec3 tetradic2_4 = getTetradicColor2(c4);
+                c4 = mix(c4, mix(tetradic1_4, mix(complementary4, tetradic2_4, rainbowFactor1), rainbowFactor1), rainbowFactor1 * 0.7);
+            } else {
+                // Intensity 5+: Full rainbow spectrum with multiple color variations
+                c1 = mix(c1, getRainbowColor(c1, u_RainbowIntensity * rainbowFactor1), rainbowFactor1 * 0.8);
+                c2 = mix(c2, getRainbowColor(c2, u_RainbowIntensity * rainbowFactor2), rainbowFactor2 * 0.8);
+                c3 = mix(c3, getRainbowColor(c3, u_RainbowIntensity * rainbowFactor3), rainbowFactor3 * 0.8);
+                c4 = mix(c4, getRainbowColor(c4, u_RainbowIntensity * rainbowFactor1), rainbowFactor1 * 0.8);
+            }
+        }
+
+        // Interpolate in selected color space
+        vec3 result = vec3(0.0);
 
         // First interpolate pairs
         vec3 top = interpolateInColorSpace(c1, c2, w2 / (w1 + w2));
@@ -443,5 +566,155 @@ export const DITHER_FRAGMENT_SHADER = `
             // Fallback to closest color
             gl_FragColor = vec4(findClosestColor(color), originalColor.a);
         }
+    }
+`;
+
+export const RAINBOW_FRAGMENT_SHADER = `
+    precision mediump float;
+    varying vec2 v_TexCoord;
+    uniform sampler2D u_Texture;
+    uniform float u_RainbowIntensity;
+    uniform vec2 u_Resolution;
+    uniform vec4 u_Color1;
+    uniform vec4 u_Color2;
+    uniform vec4 u_Color3;
+    uniform vec4 u_Color4;
+    
+    // Convert RGB to HSV
+    vec3 rgb2hsv(vec3 c) {
+        vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+        vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+        vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+        
+        float d = q.x - min(q.w, q.y);
+        float e = 1.0e-10;
+        return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    }
+    
+    // Convert HSV to RGB
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
+    
+    // Generate complementary colors
+    vec3 getComplementaryColor(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.5, 1.0); // Shift hue by 180 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate triadic colors (120 degrees apart)
+    vec3 getTriadicColor1(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.333, 1.0); // Shift hue by 120 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    vec3 getTriadicColor2(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.667, 1.0); // Shift hue by 240 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate tetradic colors (90 degrees apart)
+    vec3 getTetradicColor1(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.25, 1.0); // Shift hue by 90 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    vec3 getTetradicColor2(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.75, 1.0); // Shift hue by 270 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate analogous colors (30 degrees apart)
+    vec3 getAnalogousColor1(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.083, 1.0); // Shift hue by 30 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    vec3 getAnalogousColor2(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x - 0.083, 1.0); // Shift hue by -30 degrees
+        if (hsv.x < 0.0) hsv.x += 1.0;
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate split-complementary colors
+    vec3 getSplitComplementary1(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.417, 1.0); // Shift hue by 150 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    vec3 getSplitComplementary2(vec3 color) {
+        vec3 hsv = rgb2hsv(color);
+        hsv.x = mod(hsv.x + 0.583, 1.0); // Shift hue by 210 degrees
+        return hsv2rgb(hsv);
+    }
+    
+    // Generate additional rainbow colors based on intensity
+    vec3 getRainbowColor(vec3 baseColor, float index) {
+        vec3 hsv = rgb2hsv(baseColor);
+        float hueShift = index / u_RainbowIntensity;
+        hsv.x = mod(hsv.x + hueShift, 1.0);
+        return hsv2rgb(hsv);
+    }
+    
+    void main() {
+        vec4 originalColor = texture2D(u_Texture, v_TexCoord);
+        vec3 color = originalColor.rgb;
+        
+        // Create a smooth noise pattern instead of a grid
+        vec2 noisePos = v_TexCoord * u_Resolution / 50.0;
+        float noise = fract(sin(dot(noisePos, vec2(12.9898, 78.233))) * 43758.5453);
+        
+        // Create a smooth rainbow effect based on position and intensity
+        float rainbowFactor = sin(v_TexCoord.x * 3.14159 * u_RainbowIntensity + v_TexCoord.y * 3.14159 * u_RainbowIntensity + noise * 6.28) * 0.5 + 0.5;
+        
+        // Select base color based on position with smooth transitions
+        vec3 baseColor;
+        float colorMix = fract(v_TexCoord.x + v_TexCoord.y + noise * 0.1);
+        
+        if (colorMix < 0.25) {
+            baseColor = u_Color1.rgb;
+        } else if (colorMix < 0.5) {
+            baseColor = u_Color2.rgb;
+        } else if (colorMix < 0.75) {
+            baseColor = u_Color3.rgb;
+        } else {
+            baseColor = u_Color4.rgb;
+        }
+        
+        // Generate rainbow colors based on intensity with smooth interpolation
+        vec3 rainbowColor;
+        if (u_RainbowIntensity < 1.5) {
+            rainbowColor = baseColor;
+        } else if (u_RainbowIntensity < 2.5) {
+            rainbowColor = mix(baseColor, getComplementaryColor(baseColor), rainbowFactor);
+        } else if (u_RainbowIntensity < 3.5) {
+            vec3 triadic1 = getTriadicColor1(baseColor);
+            vec3 triadic2 = getTriadicColor2(baseColor);
+            rainbowColor = mix(baseColor, mix(triadic1, triadic2, rainbowFactor), rainbowFactor);
+        } else if (u_RainbowIntensity < 4.5) {
+            vec3 tetradic1 = getTetradicColor1(baseColor);
+            vec3 complementary = getComplementaryColor(baseColor);
+            vec3 tetradic2 = getTetradicColor2(baseColor);
+            rainbowColor = mix(baseColor, mix(tetradic1, mix(complementary, tetradic2, rainbowFactor), rainbowFactor), rainbowFactor);
+        } else {
+            // For higher intensities, use the rainbow color generation with smooth transitions
+            rainbowColor = getRainbowColor(baseColor, rainbowFactor * u_RainbowIntensity);
+        }
+        
+        // Blend the original color with the rainbow color smoothly
+        float blendFactor = 0.8; // How much of the rainbow effect to apply
+        vec3 finalColor = mix(color, rainbowColor, blendFactor);
+        
+        gl_FragColor = vec4(finalColor, originalColor.a);
     }
 `; 
