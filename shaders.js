@@ -28,6 +28,11 @@ export const FRAGMENT_SHADER = `
     uniform float aspectRatio;
     uniform int colorSpace; // 0: RGB, 1: OKLAB, 2: HSL, 3: LCH
     uniform float u_RainbowIntensity; // Rainbow effect intensity
+    uniform sampler2D u_BackgroundTexture; // Background image texture
+    uniform float u_BackgroundOpacity; // Background image opacity
+    uniform float u_BackgroundScale; // Background image scale
+    uniform int u_BackgroundBlendMode; // Background blend mode
+    uniform bool u_BackgroundEnabled; // Whether background is enabled
 
     float rbf(vec2 x, vec2 y, float s2) {
         vec2 d = vec2(
@@ -222,6 +227,49 @@ export const FRAGMENT_SHADER = `
         return hsv2rgb(hsv);
     }
 
+    // Blend mode functions
+    vec3 blendMultiply(vec3 base, vec3 blend) {
+        return base * blend;
+    }
+
+    vec3 blendOverlay(vec3 base, vec3 blend) {
+        return mix(2.0 * base * blend, 1.0 - 2.0 * (1.0 - base) * (1.0 - blend), step(0.5, base));
+    }
+
+    vec3 blendScreen(vec3 base, vec3 blend) {
+        return 1.0 - (1.0 - base) * (1.0 - blend);
+    }
+
+    vec3 blendSoftLight(vec3 base, vec3 blend) {
+        return mix(2.0 * base * blend + base * base * (1.0 - 2.0 * blend),
+                   2.0 * base * (1.0 - blend) + sqrt(base) * (2.0 * blend - 1.0),
+                   step(0.5, blend));
+    }
+
+    vec3 blendHardLight(vec3 base, vec3 blend) {
+        return mix(2.0 * base * blend, 1.0 - 2.0 * (1.0 - base) * (1.0 - blend), step(0.5, blend));
+    }
+
+    vec3 blendColorDodge(vec3 base, vec3 blend) {
+        return base / (1.0 - blend);
+    }
+
+    vec3 blendColorBurn(vec3 base, vec3 blend) {
+        return 1.0 - (1.0 - base) / blend;
+    }
+
+    // Apply blend mode
+    vec3 applyBlendMode(vec3 base, vec3 blend, int mode) {
+        if (mode == 0) return blendMultiply(base, blend);
+        else if (mode == 1) return blendOverlay(base, blend);
+        else if (mode == 2) return blendScreen(base, blend);
+        else if (mode == 3) return blendSoftLight(base, blend);
+        else if (mode == 4) return blendHardLight(base, blend);
+        else if (mode == 5) return blendColorDodge(base, blend);
+        else if (mode == 6) return blendColorBurn(base, blend);
+        else return base; // Default to no blending
+    }
+
     vec3 interpolateInColorSpace(vec3 color1, vec3 color2, float t) {
         if (colorSpace == 1) { // OKLAB
             vec3 oklab1 = rgb2oklab(color1);
@@ -367,7 +415,31 @@ export const FRAGMENT_SHADER = `
     void main() {
         vec2 p = vec2(v_TexCoord.x * 2.0 - 1.0, v_TexCoord.y * 2.0 - 1.0);
         vec2 q = warpPoint(p);
-        gl_FragColor = interpolateColors(q);
+        vec4 gradientColor = interpolateColors(q);
+        
+        // Apply background image if enabled
+        if (u_BackgroundEnabled) {
+            // Sample background texture with tiling and scaling
+            vec2 backgroundUV = (q + 1.0) * 0.5; // Convert from [-1,1] to [0,1]
+            
+            // Flip Y-axis to fix upside-down image
+            backgroundUV.y = 1.0 - backgroundUV.y;
+            
+            // Apply scaling and tiling
+            backgroundUV = fract(backgroundUV * u_BackgroundScale);
+            
+            vec4 backgroundSample = texture2D(u_BackgroundTexture, backgroundUV);
+            
+            // Apply blend mode
+            vec3 blendedColor = applyBlendMode(gradientColor.rgb, backgroundSample.rgb, u_BackgroundBlendMode);
+            
+            // Mix with original gradient based on opacity
+            vec3 finalColor = mix(gradientColor.rgb, blendedColor, u_BackgroundOpacity);
+            
+            gl_FragColor = vec4(finalColor, gradientColor.a);
+        } else {
+            gl_FragColor = gradientColor;
+        }
     }
 `;
 

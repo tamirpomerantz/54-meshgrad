@@ -157,6 +157,15 @@ export class Canvas {
             rainbowIntensity: 1
         };
         
+        // Background image properties
+        this.backgroundImage = {
+            texture: null,
+            opacity: 0.5,
+            blendMode: 'multiply',
+            scale: 1.0,
+            enabled: false
+        };
+        
         // Initialize color control points
         this.updateColorPoints();
 
@@ -194,6 +203,50 @@ export class Canvas {
         this.effects.ditherSize = ditherSize;
         this.effects.ditherAlgorithm = ditherAlgorithm;
         this.effects.rainbowIntensity = rainbowIntensity;
+    }
+
+    setBackgroundImage(imageElement) {
+        const gl = this.ctx;
+        
+        // Delete existing texture if any
+        if (this.backgroundImage.texture) {
+            gl.deleteTexture(this.backgroundImage.texture);
+        }
+        
+        // Create new texture from image
+        this.backgroundImage.texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.backgroundImage.texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageElement);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        
+        this.backgroundImage.enabled = true;
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    removeBackgroundImage() {
+        const gl = this.ctx;
+        
+        if (this.backgroundImage.texture) {
+            gl.deleteTexture(this.backgroundImage.texture);
+            this.backgroundImage.texture = null;
+        }
+        
+        this.backgroundImage.enabled = false;
+    }
+
+    setBackgroundOpacity(opacity) {
+        this.backgroundImage.opacity = opacity / 100.0; // Convert percentage to 0-1
+    }
+
+    setBackgroundBlendMode(blendMode) {
+        this.backgroundImage.blendMode = blendMode;
+    }
+
+    setBackgroundScale(scale) {
+        this.backgroundImage.scale = scale / 100.0; // Convert percentage to 0-2 range
     }
 
     updateAspectRatio(newRatio) {
@@ -709,6 +762,27 @@ export class Canvas {
         this.setUniform(this.warpProgram, 'aspectRatio', gl.uniform1f, 0, this.aspectRatio);
         this.setUniform(this.warpProgram, 'colorSpace', gl.uniform1i, 0, this.colorSpace);
         this.setUniform(this.warpProgram, 'u_RainbowIntensity', gl.uniform1f, 0, this.effects.rainbowIntensity);
+        
+        // Background image uniforms
+        this.setUniform(this.warpProgram, 'u_BackgroundEnabled', gl.uniform1i, 0, this.backgroundImage.enabled ? 1 : 0);
+        this.setUniform(this.warpProgram, 'u_BackgroundOpacity', gl.uniform1f, 0, this.backgroundImage.opacity);
+        this.setUniform(this.warpProgram, 'u_BackgroundScale', gl.uniform1f, 0, this.backgroundImage.scale);
+        
+        // Blend mode mapping
+        const blendModeMap = {
+            'multiply': 0, 'overlay': 1, 'screen': 2, 'soft-light': 3,
+            'hard-light': 4, 'color-dodge': 5, 'color-burn': 6
+        };
+        this.setUniform(this.warpProgram, 'u_BackgroundBlendMode', gl.uniform1i, 0, blendModeMap[this.backgroundImage.blendMode] || 0);
+        
+        // Bind background texture if available
+        if (this.backgroundImage.enabled && this.backgroundImage.texture) {
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, this.backgroundImage.texture);
+            this.setUniform(this.warpProgram, 'u_BackgroundTexture', gl.uniform1i, 0, 1);
+        } else {
+            this.setUniform(this.warpProgram, 'u_BackgroundTexture', gl.uniform1i, 0, 0);
+        }
         
         // Flatten the points array and ensure it's properly formatted
         const points = this.warp.src.slice(0, this.warp.npoints()).flat();

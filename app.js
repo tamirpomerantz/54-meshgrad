@@ -292,6 +292,178 @@ class MeshGradientApp {
             });
         }
 
+        // Background image controls
+        const backgroundOpacitySlider = document.getElementById('backgroundOpacity');
+        const backgroundOpacityDisplay = backgroundOpacitySlider?.nextElementSibling;
+        const backgroundScaleSlider = document.getElementById('backgroundScale');
+        const backgroundScaleDisplay = backgroundScaleSlider?.nextElementSibling;
+        const backgroundBlendSelect = document.getElementById('backgroundBlend');
+        const backgroundImageInput = document.getElementById('backgroundImage');
+        const uploadBackgroundBtn = document.getElementById('uploadBackground');
+        const removeBackgroundBtn = document.getElementById('removeBackground');
+        const backgroundImageTile = document.getElementById('backgroundImageTile');
+        const backgroundImagePreview = document.getElementById('backgroundImagePreview');
+        const backgroundImageName = document.getElementById('backgroundImageName');
+        const backgroundImageControls = document.getElementById('backgroundImageControls');
+
+        // Background opacity slider
+        if (backgroundOpacitySlider) {
+            backgroundOpacitySlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (backgroundOpacityDisplay) {
+                    backgroundOpacityDisplay.textContent = value + '%';
+                }
+                
+                // Update background opacity
+                if (this.meshCanvas) {
+                    this.meshCanvas.setBackgroundOpacity(value);
+                    this.redraw();
+                }
+            });
+        }
+
+        // Background scale slider
+        if (backgroundScaleSlider) {
+            backgroundScaleSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (backgroundScaleDisplay) {
+                    backgroundScaleDisplay.textContent = value + '%';
+                }
+                
+                // Update background scale
+                if (this.meshCanvas) {
+                    this.meshCanvas.setBackgroundScale(value);
+                    this.redraw();
+                }
+            });
+        }
+
+        // Background blend mode
+        if (backgroundBlendSelect) {
+            backgroundBlendSelect.addEventListener('change', (e) => {
+                const blendMode = e.target.value;
+                
+                // Update background blend mode
+                if (this.meshCanvas) {
+                    this.meshCanvas.setBackgroundBlendMode(blendMode);
+                    this.redraw();
+                }
+            });
+        }
+
+        // Upload background image
+        if (uploadBackgroundBtn && backgroundImageInput) {
+            uploadBackgroundBtn.addEventListener('click', () => {
+                backgroundImageInput.click();
+            });
+
+            backgroundImageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && file.type === 'image/png') {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            if (this.meshCanvas) {
+                                this.meshCanvas.setBackgroundImage(img);
+                                this.redraw();
+                                
+                                // Show image tile and controls, hide upload button
+                                if (backgroundImageTile) {
+                                    backgroundImageTile.style.display = 'flex';
+                                }
+                                if (backgroundImageControls) {
+                                    backgroundImageControls.style.display = 'block';
+                                }
+                                if (uploadBackgroundBtn) {
+                                    uploadBackgroundBtn.style.display = 'none';
+                                }
+                                
+                                // Update image preview and name
+                                if (backgroundImagePreview) {
+                                    backgroundImagePreview.src = event.target.result;
+                                }
+                                if (backgroundImageName) {
+                                    backgroundImageName.textContent = file.name;
+                                }
+                            }
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('Please select a PNG image file.');
+                }
+            });
+        }
+
+        // Remove background image
+        if (removeBackgroundBtn) {
+            removeBackgroundBtn.addEventListener('click', () => {
+                if (this.meshCanvas) {
+                    this.meshCanvas.removeBackgroundImage();
+                    this.redraw();
+                    
+                    // Hide image tile and controls, show upload button
+                    if (backgroundImageTile) {
+                        backgroundImageTile.style.display = 'none';
+                    }
+                    if (backgroundImageControls) {
+                        backgroundImageControls.style.display = 'none';
+                    }
+                    if (uploadBackgroundBtn) {
+                        uploadBackgroundBtn.style.display = 'flex';
+                    }
+                    
+                    // Clear file input
+                    if (backgroundImageInput) {
+                        backgroundImageInput.value = '';
+                    }
+                }
+            });
+        }
+
+        // Collapse/expand functionality
+        const toggleSection = (targetId) => {
+            const targetContent = document.getElementById(targetId);
+            const collapseBtn = document.querySelector(`[data-target="${targetId}"]`);
+            const isCollapsed = targetContent.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                // Expand
+                targetContent.classList.remove('collapsed');
+                collapseBtn.classList.remove('collapsed');
+            } else {
+                // Collapse
+                targetContent.classList.add('collapsed');
+                collapseBtn.classList.add('collapsed');
+            }
+        };
+
+        // Handle clicks on collapse buttons
+        document.querySelectorAll('.collapse-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent title row click
+                const targetId = e.currentTarget.getAttribute('data-target');
+                toggleSection(targetId);
+            });
+        });
+
+        // Handle clicks on title rows
+        document.querySelectorAll('.background-title').forEach(titleRow => {
+            titleRow.addEventListener('click', (e) => {
+                const collapseBtn = titleRow.querySelector('.collapse-btn');
+                if (collapseBtn) {
+                    const targetId = collapseBtn.getAttribute('data-target');
+                    toggleSection(targetId);
+                }
+            });
+        });
+
         // Button events
         document.getElementById('randomizeWarp')?.addEventListener('click', () => this.randomizeWarpPoints());
         document.getElementById('randomizeColors')?.addEventListener('click', () => this.randomizeColors());
@@ -514,6 +686,10 @@ class MeshGradientApp {
         const rainbowOptions = document.getElementById('rainbowOptions');
         const rainbowValueDisplay = rainbowIntensitySlider?.nextElementSibling;
         
+        const backgroundOpacitySlider = document.getElementById('backgroundOpacity');
+        const backgroundOpacityDisplay = backgroundOpacitySlider?.nextElementSibling;
+        const backgroundBlendSelect = document.getElementById('backgroundBlend');
+        
         if (effectTypeSelect) {
             effectTypeSelect.value = 'none';
         }
@@ -553,6 +729,43 @@ class MeshGradientApp {
             if (rainbowValueDisplay) {
                 rainbowValueDisplay.textContent = '1';
             }
+        }
+        
+        if (backgroundOpacitySlider) {
+            backgroundOpacitySlider.value = 50;
+            if (backgroundOpacityDisplay) {
+                backgroundOpacityDisplay.textContent = '50%';
+            }
+        }
+        
+        if (backgroundScaleSlider) {
+            backgroundScaleSlider.value = 100;
+            if (backgroundScaleDisplay) {
+                backgroundScaleDisplay.textContent = '100%';
+            }
+        }
+        
+        if (backgroundBlendSelect) {
+            backgroundBlendSelect.value = 'multiply';
+        }
+        
+        // Reset background image UI state
+        if (backgroundImageTile) {
+            backgroundImageTile.style.display = 'none';
+        }
+        if (backgroundImageControls) {
+            backgroundImageControls.style.display = 'none';
+        }
+        if (uploadBackgroundBtn) {
+            uploadBackgroundBtn.style.display = 'flex';
+        }
+        if (backgroundImageInput) {
+            backgroundImageInput.value = '';
+        }
+        
+        // Remove background image on reset
+        if (this.meshCanvas) {
+            this.meshCanvas.removeBackgroundImage();
         }
 
         this.warps = new Warps();

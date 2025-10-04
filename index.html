@@ -28,6 +28,28 @@
             </button>
             
             <div class="controls-panel">
+
+                <div class="action-controls">
+                    <button id="randomizeWarp" class="btn" title="Randomize Warp">
+                        <span class="material-icons-round">shuffle</span>
+                    </button>
+                    
+                   
+                    <button id="toggleAnimation" class="btn" title="Toggle Animation">
+                        <span class="material-icons-round">play_arrow</span>
+                    </button>
+                    <button id="toggleNoise" class="btn" title="Toggle Noise">
+                        <span class="material-icons-round">grain</span>
+                    </button>
+                    <button id="export" class="btn" title="Export PNG">
+                        <span class="material-icons-round">download</span>
+                    </button>
+                    <button id="reset" class="btn" title="Reset">
+                        <span class="material-icons-round">restart_alt</span>
+                    </button>
+                </div>
+
+                
                 <div class="color-space-selector">
                     <select id="colorSpace" class="select-minimal">
                         <option value="rgb">RGB</option>
@@ -40,7 +62,52 @@
                     </label>
                 </div>
 
+
+                <div class="color-controls">
+                    
+                    <div class="color-picker">
+                        <input type="color" id="topLeft" data-position="tl" title="Top Left">
+                        <label for="topLeft">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="topRight" data-position="tr" title="Top Right">
+                        <label for="topRight">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="bottomLeft" data-position="bl" title="Bottom Left">
+                        <label for="bottomLeft">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <div class="color-picker">
+                        <input type="color" id="bottomRight" data-position="br" title="Bottom Right">
+                        <label for="bottomRight">
+                            <span class="material-icons-round">lens</span>
+                        </label>
+                    </div>
+                    <button id="randomizeColors" class="btn" title="Randomize Colors">
+                        <span class="material-icons-round">format_paint</span>
+                    </button>
+                    <button id="randomizePositions" class="btn" title="Randomize Color Positions">
+                        <span class="material-icons-round">casino</span>
+                    </button>
+                </div>
+                
+
+
                 <div class="effects-controls">
+                    <div class="background-title">
+                        <span class="material-icons-round">diamond</span>
+                        <span class="control-title">Effects</span>
+                        <button class="collapse-btn" data-target="effects-content">
+                            <span class="material-icons-round">expand_less</span>
+                        </button>
+                    </div>
+                    <div id="effects-content" class="section-content">
                     <div class="effects-header">
                         <select id="effectType" class="select-minimal">
                             <option value="none">None</option>
@@ -86,63 +153,19 @@
                                 <span class="slider-value">1</span>
                             </div>
                         </div>
+                        
+                    </div>
                     </div>
                 </div>
-
-                <div class="color-controls">
-                    <div class="color-picker">
-                        <input type="color" id="topLeft" data-position="tl" title="Top Left">
-                        <label for="topLeft">
-                            <span class="material-icons-round">lens</span>
-                        </label>
-                    </div>
-                    <div class="color-picker">
-                        <input type="color" id="topRight" data-position="tr" title="Top Right">
-                        <label for="topRight">
-                            <span class="material-icons-round">lens</span>
-                        </label>
-                    </div>
-                    <div class="color-picker">
-                        <input type="color" id="bottomLeft" data-position="bl" title="Bottom Left">
-                        <label for="bottomLeft">
-                            <span class="material-icons-round">lens</span>
-                        </label>
-                    </div>
-                    <div class="color-picker">
-                        <input type="color" id="bottomRight" data-position="br" title="Bottom Right">
-                        <label for="bottomRight">
-                            <span class="material-icons-round">lens</span>
-                        </label>
-                    </div>
-                    <button id="randomizeColors" class="btn" title="Randomize Colors">
-                        <span class="material-icons-round">format_paint</span>
-                    </button>
-                    <button id="randomizePositions" class="btn" title="Randomize Color Positions">
-                        <span class="material-icons-round">casino</span>
-                    </button>
-                </div>
-                
-                <div class="action-controls">
-                    <button id="randomizeWarp" class="btn" title="Randomize Warp">
-                        <span class="material-icons-round">shuffle</span>
-                    </button>
-                    
-                   
-                    <button id="toggleAnimation" class="btn" title="Toggle Animation">
-                        <span class="material-icons-round">play_arrow</span>
-                    </button>
-                    <button id="toggleNoise" class="btn" title="Toggle Noise">
-                        <span class="material-icons-round">grain</span>
-                    </button>
-                    <button id="export" class="btn" title="Export PNG">
-                        <span class="material-icons-round">download</span>
-                    </button>
-                    <button id="reset" class="btn" title="Reset">
-                        <span class="material-icons-round">restart_alt</span>
-                    </button>
-                </div>
-
                 <div class="levels-controls">
+                    <div class="background-title">
+                        <span class="material-icons-round">brightness_low</span>
+                        <span  class="control-title">Levels</span>
+                        <button class="collapse-btn" data-target="levels-content">
+                            <span class="material-icons-round">expand_less</span>
+                        </button>
+                    </div>
+                    <div id="levels-content" class="section-content">
                     <div class="slider-group">
                         <label for="levelsLow">Low</label>
                         <input type="range" id="levelsLow" min="0" max="1" step="0.01" value="0" class="levels-slider">
@@ -157,6 +180,61 @@
                         <label for="levelsHigh">High</label>
                         <input type="range" id="levelsHigh" min="0" max="1" step="0.01" value="1" class="levels-slider">
                         <span class="slider-value">1.00</span>
+                    </div>
+                    </div>
+                </div>
+
+                <div class="background-controls">
+                    <div class="background-title">
+                        <span class="material-icons-round">image</span>
+                        <span  class="control-title">Background</span>
+                        <button class="collapse-btn" data-target="background-content">
+                            <span class="material-icons-round">expand_less</span>
+                        </button>
+                    </div>
+                    <div id="background-content" class="section-content">
+                    <div class="background-upload-section">
+                        <input type="file" id="backgroundImage" accept="image/png" style="display: none;">
+                        <button id="uploadBackground" class="upload-btn" title="Upload Background Image">
+                            <span class="material-icons-round">cloud_upload</span>
+                            <span>Upload Image</span>
+                        </button>
+                        <div id="backgroundImageTile" class="image-tile" style="display: none;">
+                            <div class="image-preview">
+                                <img id="backgroundImagePreview" src="" alt="Background preview">
+                            </div>
+                            <div class="image-info">
+                                <span id="backgroundImageName" class="image-name"></span>
+                                <button id="removeBackground" class="clear-btn" title="Remove Background Image">
+                                    <span class="material-icons-round">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="backgroundImageControls" class="background-image-controls" style="display: none;">
+                        <div class="slider-group">
+                            <label for="backgroundOpacity">Opacity</label>
+                            <input type="range" id="backgroundOpacity" min="0" max="100" step="1" value="50" class="effects-slider">
+                            <span class="slider-value">50%</span>
+                        </div>
+                        <div class="slider-group">
+                            <label for="backgroundScale">Scale</label>
+                            <input type="range" id="backgroundScale" min="10" max="200" step="5" value="100" class="effects-slider">
+                            <span class="slider-value">100%</span>
+                        </div>
+                        <div class="slider-group">
+                            <label for="backgroundBlend">Blending</label>
+                            <select id="backgroundBlend" class="select-minimal">
+                                <option value="multiply">Multiply</option>
+                                <option value="overlay">Overlay</option>
+                                <option value="screen">Screen</option>
+                                <option value="soft-light">Soft Light</option>
+                                <option value="hard-light">Hard Light</option>
+                                <option value="color-dodge">Color Dodge</option>
+                                <option value="color-burn">Color Burn</option>
+                            </select>
+                        </div>
+                    </div>
                     </div>
                 </div>
             </div>
