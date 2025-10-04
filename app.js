@@ -167,6 +167,96 @@ class MeshGradientApp {
             }
         });
 
+        // Effects dropdown event
+        document.getElementById('effectType')?.addEventListener('change', (e) => {
+            const effectType = e.target.value;
+            const pixelateOptions = document.getElementById('pixelateOptions');
+            const ditherOptions = document.getElementById('ditherOptions');
+            
+            // Show/hide controls based on effect type
+            if (effectType === 'pixelate') {
+                pixelateOptions.style.display = 'block';
+                ditherOptions.style.display = 'none';
+            } else if (effectType === 'dither') {
+                pixelateOptions.style.display = 'none';
+                ditherOptions.style.display = 'block';
+            } else {
+                pixelateOptions.style.display = 'none';
+                ditherOptions.style.display = 'none';
+            }
+            
+            // Update effect in canvas
+            if (this.meshCanvas) {
+                const pixelSize = parseFloat(document.getElementById('pixelSize').value);
+                const ditherSize = parseFloat(document.getElementById('ditherSize').value);
+                const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
+                this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, ditherAlgorithm);
+                this.redraw();
+            }
+        });
+
+        // Pixel size slider event
+        const pixelSizeSlider = document.getElementById('pixelSize');
+        const pixelValueDisplay = pixelSizeSlider?.nextElementSibling;
+        
+        if (pixelSizeSlider) {
+            pixelSizeSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (pixelValueDisplay) {
+                    pixelValueDisplay.textContent = value.toString();
+                }
+                
+                // Update effect in canvas
+                if (this.meshCanvas) {
+                    const effectType = document.getElementById('effectType').value;
+                    const ditherSize = parseFloat(document.getElementById('ditherSize').value);
+                    const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
+                    this.meshCanvas.setEffect(effectType, value, ditherSize, ditherAlgorithm);
+                    this.redraw();
+                }
+            });
+        }
+
+        // Dither size slider event
+        const ditherSizeSlider = document.getElementById('ditherSize');
+        const ditherValueDisplay = ditherSizeSlider?.nextElementSibling;
+        
+        if (ditherSizeSlider) {
+            ditherSizeSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update value display
+                if (ditherValueDisplay) {
+                    ditherValueDisplay.textContent = value.toString();
+                }
+                
+                // Update effect in canvas
+                if (this.meshCanvas) {
+                    const effectType = document.getElementById('effectType').value;
+                    const pixelSize = parseFloat(document.getElementById('pixelSize').value);
+                    const ditherAlgorithm = document.getElementById('ditherAlgorithm').value;
+                    this.meshCanvas.setEffect(effectType, pixelSize, value, ditherAlgorithm);
+                    this.redraw();
+                }
+            });
+        }
+
+        // Dither algorithm dropdown event
+        document.getElementById('ditherAlgorithm')?.addEventListener('change', (e) => {
+            const algorithm = e.target.value;
+            
+            // Update effect in canvas
+            if (this.meshCanvas) {
+                const effectType = document.getElementById('effectType').value;
+                const pixelSize = parseFloat(document.getElementById('pixelSize').value);
+                const ditherSize = parseFloat(document.getElementById('ditherSize').value);
+                this.meshCanvas.setEffect(effectType, pixelSize, ditherSize, algorithm);
+                this.redraw();
+            }
+        });
+
         // Button events
         document.getElementById('randomizeWarp')?.addEventListener('click', () => this.randomizeWarpPoints());
         document.getElementById('randomizeColors')?.addEventListener('click', () => this.randomizeColors());
@@ -373,6 +463,47 @@ class MeshGradientApp {
                 }
             }
         });
+
+        // Reset effects controls to default values
+        const effectTypeSelect = document.getElementById('effectType');
+        const pixelSizeSlider = document.getElementById('pixelSize');
+        const pixelateOptions = document.getElementById('pixelateOptions');
+        const pixelValueDisplay = pixelSizeSlider?.nextElementSibling;
+        
+        const ditherSizeSlider = document.getElementById('ditherSize');
+        const ditherOptions = document.getElementById('ditherOptions');
+        const ditherValueDisplay = ditherSizeSlider?.nextElementSibling;
+        const ditherAlgorithmSelect = document.getElementById('ditherAlgorithm');
+        
+        if (effectTypeSelect) {
+            effectTypeSelect.value = 'none';
+        }
+        
+        if (pixelateOptions) {
+            pixelateOptions.style.display = 'none';
+        }
+        
+        if (ditherOptions) {
+            ditherOptions.style.display = 'none';
+        }
+        
+        if (pixelSizeSlider) {
+            pixelSizeSlider.value = 8;
+            if (pixelValueDisplay) {
+                pixelValueDisplay.textContent = '8';
+            }
+        }
+        
+        if (ditherSizeSlider) {
+            ditherSizeSlider.value = 4;
+            if (ditherValueDisplay) {
+                ditherValueDisplay.textContent = '4';
+            }
+        }
+        
+        if (ditherAlgorithmSelect) {
+            ditherAlgorithmSelect.value = 'ordered';
+        }
 
         this.warps = new Warps();
         this.meshCanvas = new Canvas(this.warps.warps[0], this.canvas, this.colors);

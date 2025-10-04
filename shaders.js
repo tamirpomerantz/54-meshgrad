@@ -305,4 +305,143 @@ export const LEVELS_FRAGMENT_SHADER = `
         
         gl_FragColor = vec4(adjusted, color.a);
     }
+`;
+
+export const PIXELATE_FRAGMENT_SHADER = `
+    precision mediump float;
+    varying vec2 v_TexCoord;
+    uniform sampler2D u_Texture;
+    uniform float u_PixelSize;
+    uniform vec2 u_Resolution;
+    
+    void main() {
+        // Calculate pixel size in UV coordinates
+        vec2 pixelSize = u_PixelSize / u_Resolution;
+        
+        // Snap to pixel grid
+        vec2 pixelatedUV = floor(v_TexCoord / pixelSize) * pixelSize;
+        
+        // Sample the texture at the pixelated coordinates
+        gl_FragColor = texture2D(u_Texture, pixelatedUV);
+    }
+`;
+
+export const DITHER_FRAGMENT_SHADER = `
+    precision mediump float;
+    varying vec2 v_TexCoord;
+    uniform sampler2D u_Texture;
+    uniform float u_DitherSize;
+    uniform vec2 u_Resolution;
+    uniform int u_Algorithm; // 0: Ordered, 1: Floyd-Steinberg, 2: Atkinson
+    uniform vec4 u_Color1;
+    uniform vec4 u_Color2;
+    uniform vec4 u_Color3;
+    uniform vec4 u_Color4;
+    
+    // Bayer matrix for ordered dithering (4x4)
+    const mat4 bayerMatrix = mat4(
+        0.0/16.0, 8.0/16.0, 2.0/16.0, 10.0/16.0,
+        12.0/16.0, 4.0/16.0, 14.0/16.0, 6.0/16.0,
+        3.0/16.0, 11.0/16.0, 1.0/16.0, 9.0/16.0,
+        15.0/16.0, 7.0/16.0, 13.0/16.0, 5.0/16.0
+    );
+    
+    float getBayerValue(vec2 pos) {
+        int x = int(mod(pos.x, 4.0));
+        int y = int(mod(pos.y, 4.0));
+        
+        if (y == 0) {
+            if (x == 0) return bayerMatrix[0][0];
+            if (x == 1) return bayerMatrix[0][1];
+            if (x == 2) return bayerMatrix[0][2];
+            return bayerMatrix[0][3];
+        } else if (y == 1) {
+            if (x == 0) return bayerMatrix[1][0];
+            if (x == 1) return bayerMatrix[1][1];
+            if (x == 2) return bayerMatrix[1][2];
+            return bayerMatrix[1][3];
+        } else if (y == 2) {
+            if (x == 0) return bayerMatrix[2][0];
+            if (x == 1) return bayerMatrix[2][1];
+            if (x == 2) return bayerMatrix[2][2];
+            return bayerMatrix[2][3];
+        } else {
+            if (x == 0) return bayerMatrix[3][0];
+            if (x == 1) return bayerMatrix[3][1];
+            if (x == 2) return bayerMatrix[3][2];
+            return bayerMatrix[3][3];
+        }
+    }
+    
+    vec3 findClosestColor(vec3 color) {
+        float minDist = 999.0;
+        vec3 closest = u_Color1.rgb;
+        
+        vec3 diff1 = color - u_Color1.rgb;
+        float dist1 = dot(diff1, diff1);
+        if (dist1 < minDist) {
+            minDist = dist1;
+            closest = u_Color1.rgb;
+        }
+        
+        vec3 diff2 = color - u_Color2.rgb;
+        float dist2 = dot(diff2, diff2);
+        if (dist2 < minDist) {
+            minDist = dist2;
+            closest = u_Color2.rgb;
+        }
+        
+        vec3 diff3 = color - u_Color3.rgb;
+        float dist3 = dot(diff3, diff3);
+        if (dist3 < minDist) {
+            minDist = dist3;
+            closest = u_Color3.rgb;
+        }
+        
+        vec3 diff4 = color - u_Color4.rgb;
+        float dist4 = dot(diff4, diff4);
+        if (dist4 < minDist) {
+            minDist = dist4;
+            closest = u_Color4.rgb;
+        }
+        
+        return closest;
+    }
+    
+    void main() {
+        vec2 pixelPos = floor(v_TexCoord * u_Resolution / u_DitherSize) * u_DitherSize;
+        vec2 pixelUV = pixelPos / u_Resolution;
+        
+        vec4 originalColor = texture2D(u_Texture, pixelUV);
+        vec3 color = originalColor.rgb;
+        
+        if (u_Algorithm == 0) {
+            // Ordered (Bayer) dithering
+            vec2 bayerPos = floor(v_TexCoord * u_Resolution / u_DitherSize);
+            float threshold = getBayerValue(bayerPos);
+            
+            // Apply threshold to each color channel
+            color += (threshold - 0.5) * 0.2;
+            color = clamp(color, 0.0, 1.0);
+            
+            gl_FragColor = vec4(findClosestColor(color), originalColor.a);
+        }
+        else if (u_Algorithm == 1 || u_Algorithm == 2) {
+            // Floyd-Steinberg or Atkinson (simplified for real-time)
+            // For real-time, we'll use a noise-based approximation
+            vec2 noisePos = floor(v_TexCoord * u_Resolution / u_DitherSize);
+            float noise = fract(sin(dot(noisePos, vec2(12.9898, 78.233))) * 43758.5453);
+            
+            // Apply error diffusion approximation
+            float errorAmount = u_Algorithm == 1 ? 0.15 : 0.125; // Floyd vs Atkinson
+            color += (noise - 0.5) * errorAmount;
+            color = clamp(color, 0.0, 1.0);
+            
+            gl_FragColor = vec4(findClosestColor(color), originalColor.a);
+        }
+        else {
+            // Fallback to closest color
+            gl_FragColor = vec4(findClosestColor(color), originalColor.a);
+        }
+    }
 `; 

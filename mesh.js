@@ -1,4 +1,4 @@
-import { VERTEX_SHADER, FRAGMENT_SHADER, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER, POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER } from './shaders.js';
+import { VERTEX_SHADER, FRAGMENT_SHADER, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER, POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER, PIXELATE_FRAGMENT_SHADER, DITHER_FRAGMENT_SHADER } from './shaders.js';
 
 const MAX_POINTS = 32;
 
@@ -148,6 +148,14 @@ export class Canvas {
             high: 1.0
         };
         
+        // Effects properties
+        this.effects = {
+            type: 'none',
+            pixelSize: 8,
+            ditherSize: 4,
+            ditherAlgorithm: 'ordered'
+        };
+        
         // Initialize color control points
         this.updateColorPoints();
 
@@ -179,6 +187,13 @@ export class Canvas {
         this.levels.high = high;
     }
 
+    setEffect(type, pixelSize = 8, ditherSize = 4, ditherAlgorithm = 'ordered') {
+        this.effects.type = type;
+        this.effects.pixelSize = pixelSize;
+        this.effects.ditherSize = ditherSize;
+        this.effects.ditherAlgorithm = ditherAlgorithm;
+    }
+
     updateAspectRatio(newRatio) {
         this.aspectRatio = newRatio;
         this.updateColorPoints();
@@ -189,23 +204,37 @@ export class Canvas {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
-        // Delete existing texture
-        if (this.colorTexture) {
-            gl.deleteTexture(this.colorTexture);
+        // Delete existing textures
+        if (this.colorTexture1) {
+            gl.deleteTexture(this.colorTexture1);
+        }
+        if (this.colorTexture2) {
+            gl.deleteTexture(this.colorTexture2);
         }
 
-        // Create new texture with updated dimensions
-        this.colorTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+        // Recreate first texture
+        this.colorTexture1 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture1);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        // Reattach texture to framebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer1);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture1, 0);
+
+        // Recreate second texture
+        this.colorTexture2 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture2);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer2);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture2, 0);
 
         // Check framebuffer completeness
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
@@ -240,6 +269,8 @@ export class Canvas {
         this.warpProgram = this.createProgram('warp', VERTEX_SHADER, FRAGMENT_SHADER);
         this.pointProgram = this.createProgram('points', POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER);
         this.levelsProgram = this.createProgram('levels', POST_VERTEX_SHADER, LEVELS_FRAGMENT_SHADER);
+        this.pixelateProgram = this.createProgram('pixelate', POST_VERTEX_SHADER, PIXELATE_FRAGMENT_SHADER);
+        this.ditherProgram = this.createProgram('dither', POST_VERTEX_SHADER, DITHER_FRAGMENT_SHADER);
     }
 
     createProgram(name, vertexSource, fragmentSource) {
@@ -312,21 +343,31 @@ export class Canvas {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
-        // Create framebuffer
-        this.framebuffer = gl.createFramebuffer();
-        
-        // Create texture for color attachment
-        this.colorTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+        // Create first framebuffer (for initial render)
+        this.framebuffer1 = gl.createFramebuffer();
+        this.colorTexture1 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture1);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        // Bind framebuffer and attach texture
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer1);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture1, 0);
+
+        // Create second framebuffer (for post-processing)
+        this.framebuffer2 = gl.createFramebuffer();
+        this.colorTexture2 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture2);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer2);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTexture2, 0);
 
         // Check framebuffer completeness
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
@@ -384,8 +425,8 @@ export class Canvas {
     draw() {
         const gl = this.ctx;
 
-        // First pass: Render to framebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        // First pass: Render gradient to framebuffer1 (no points)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer1);
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         
         gl.clearColor(0.5, 0.5, 1.0, 1.0);
@@ -395,16 +436,22 @@ export class Canvas {
             this.drawMesh();
         }
 
-        // Only draw points if showPoints is true
-        if (this.showPoints && this.warp.npoints() > 0) {
-            this.drawPoints();
-        }
-
-        // Second pass: Apply levels adjustment and render to screen
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        // Second pass: Apply levels adjustment to framebuffer2
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer2);
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         
         this.applyLevels();
+
+        // Third pass: Apply effects to screen (or intermediate buffer)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.applyEffects();
+
+        // Fourth pass: Draw control points on top (directly to screen)
+        if (this.showPoints && this.warp.npoints() > 0) {
+            this.drawPoints();
+        }
 
         gl.flush();
     }
@@ -419,9 +466,9 @@ export class Canvas {
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         
-        // Bind the rendered texture
+        // Bind the rendered texture from framebuffer1
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture1);
         
         // Set uniforms
         this.setUniform(this.levelsProgram, 'u_Texture', gl.uniform1i, 0, 0);
@@ -432,6 +479,151 @@ export class Canvas {
         // Set up attributes for fullscreen quad
         const positionAttrib = gl.getAttribLocation(this.levelsProgram, "a_Position");
         const texcoordAttrib = gl.getAttribLocation(this.levelsProgram, "a_TexCoord");
+        
+        // Position attribute
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+        gl.enableVertexAttribArray(positionAttrib);
+        gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0);
+        
+        // Texture coordinate attribute
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.texcoordBuffer);
+        gl.enableVertexAttribArray(texcoordAttrib);
+        gl.vertexAttribPointer(texcoordAttrib, 2, gl.FLOAT, false, 0, 0);
+        
+        // Draw fullscreen quad
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+        
+        // Clean up
+        gl.disableVertexAttribArray(positionAttrib);
+        gl.disableVertexAttribArray(texcoordAttrib);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    applyEffects() {
+        const gl = this.ctx;
+        
+        if (this.effects.type === 'none') {
+            // No effect - just copy the levels-adjusted texture to screen
+            this.copyTexture(this.colorTexture2);
+        } else if (this.effects.type === 'pixelate') {
+            // Apply pixelate effect
+            this.applyPixelate();
+        } else if (this.effects.type === 'dither') {
+            // Apply dither effect
+            this.applyDither();
+        }
+    }
+
+    copyTexture(sourceTexture) {
+        const gl = this.ctx;
+        
+        // Use the levels shader without any adjustment (pass-through)
+        gl.useProgram(this.levelsProgram);
+        
+        // Clear the screen
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // Bind the source texture
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
+        
+        // Set uniforms for pass-through (no levels adjustment)
+        this.setUniform(this.levelsProgram, 'u_Texture', gl.uniform1i, 0, 0);
+        this.setUniform(this.levelsProgram, 'u_LevelsLow', gl.uniform1f, 0, 0.0);
+        this.setUniform(this.levelsProgram, 'u_LevelsMid', gl.uniform1f, 0, 1.0);
+        this.setUniform(this.levelsProgram, 'u_LevelsHigh', gl.uniform1f, 0, 1.0);
+        
+        this.renderFullscreenQuad(this.levelsProgram);
+    }
+
+    applyPixelate() {
+        const gl = this.ctx;
+        
+        // Use the pixelate shader program
+        gl.useProgram(this.pixelateProgram);
+        
+        // Clear the screen
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // Bind the levels-adjusted texture from framebuffer2
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture2);
+        
+        // Set uniforms
+        this.setUniform(this.pixelateProgram, 'u_Texture', gl.uniform1i, 0, 0);
+        this.setUniform(this.pixelateProgram, 'u_PixelSize', gl.uniform1f, 0, this.effects.pixelSize);
+        
+        // Set resolution uniform directly (uniform2f needs separate x, y values)
+        const resolutionLoc = gl.getUniformLocation(this.pixelateProgram, 'u_Resolution');
+        gl.uniform2f(resolutionLoc, this.canvas.width, this.canvas.height);
+        
+        this.renderFullscreenQuad(this.pixelateProgram);
+    }
+
+    applyDither() {
+        const gl = this.ctx;
+        
+        // Use the dither shader program
+        gl.useProgram(this.ditherProgram);
+        
+        // Clear the screen
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // Bind the levels-adjusted texture from framebuffer2
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.colorTexture2);
+        
+        // Set basic uniforms
+        this.setUniform(this.ditherProgram, 'u_Texture', gl.uniform1i, 0, 0);
+        this.setUniform(this.ditherProgram, 'u_DitherSize', gl.uniform1f, 0, this.effects.ditherSize);
+        
+        // Set resolution uniform directly
+        const resolutionLoc = gl.getUniformLocation(this.ditherProgram, 'u_Resolution');
+        gl.uniform2f(resolutionLoc, this.canvas.width, this.canvas.height);
+        
+        // Set algorithm uniform
+        const algorithmMap = { 'ordered': 0, 'floyd': 1, 'atkinson': 2 };
+        const algorithmLoc = gl.getUniformLocation(this.ditherProgram, 'u_Algorithm');
+        gl.uniform1i(algorithmLoc, algorithmMap[this.effects.ditherAlgorithm] || 0);
+        
+        // Set color uniforms (the 4 user colors)
+        const hexToRGBA = hex => {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            return [r, g, b, 1];
+        };
+        
+        // Get colors from corner positions
+        const colors = [
+            this.colors.tl, // Top-left
+            this.colors.tr, // Top-right
+            this.colors.bl, // Bottom-left
+            this.colors.br  // Bottom-right
+        ];
+        
+        colors.forEach((color, index) => {
+            const uniformName = `u_Color${index + 1}`;
+            const colorLoc = gl.getUniformLocation(this.ditherProgram, uniformName);
+            const rgba = hexToRGBA(color);
+            gl.uniform4f(colorLoc, rgba[0], rgba[1], rgba[2], rgba[3]);
+        });
+        
+        this.renderFullscreenQuad(this.ditherProgram);
+    }
+
+    renderFullscreenQuad(program) {
+        const gl = this.ctx;
+        
+        // Set up attributes for fullscreen quad
+        const positionAttrib = gl.getAttribLocation(program, "a_Position");
+        const texcoordAttrib = gl.getAttribLocation(program, "a_TexCoord");
         
         // Position attribute
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
